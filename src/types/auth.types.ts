@@ -49,4 +49,5 @@ export interface AuthContextType extends AuthState {
   oauthLogin: (token: string) => Promise<void>;
   startOAuth: (provider: string) => void;
   loginWithGoogle: () => Promise<void>;
+  loginWithMicrosoft: () => Promise<void>;
 }

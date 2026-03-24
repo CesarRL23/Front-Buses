@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -16,6 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+const microsoftProvider = new OAuthProvider('microsoft.com');
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 
-export { auth, googleProvider, analytics };
+export { auth, googleProvider, microsoftProvider, analytics };

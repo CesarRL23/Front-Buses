@@ -6,7 +6,7 @@ import { Mail, Lock, Bus } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, startOAuth, loginWithGoogle } = useAuth();
+  const { login, startOAuth, loginWithGoogle, loginWithMicrosoft } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -77,6 +77,19 @@ export const Login: React.FC = () => {
       } catch (error) {
         setApiError(
           error instanceof Error ? error.message : 'Error al iniciar sesión con Google'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (provider === 'microsoft') {
+      setIsLoading(true);
+      setApiError('');
+      try {
+        await loginWithMicrosoft();
+        navigate('/dashboard');
+      } catch (error) {
+        setApiError(
+          error instanceof Error ? error.message : 'Error al iniciar sesión con Microsoft'
         );
       } finally {
         setIsLoading(false);

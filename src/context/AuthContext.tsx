@@ -175,6 +175,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithMicrosoft = async (): Promise<void> => {
+    try {
+      const response = await authService.loginWithMicrosoft();
+      if (response.user && response.token) {
+        setUser(response.user);
+        setToken(response.token);
+        localStorage.setItem(TOKEN_KEY, response.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const logout = (): void => {
     setUser(null);
     setToken(null);
@@ -234,6 +248,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     oauthLogin,
     startOAuth: authService.startOAuth,
     loginWithGoogle,
+    loginWithMicrosoft,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

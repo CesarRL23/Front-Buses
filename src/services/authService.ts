@@ -6,7 +6,7 @@ import {
   User,
 } from '../types/auth.types';
 import { decodeJwt, isTokenExpired } from '../utils/fakeJwt';
-import { auth, googleProvider } from '../firebase/config';
+import { auth, googleProvider, microsoftProvider } from '../firebase/config';
 import { signInWithPopup } from 'firebase/auth';
 
 // The backend serves public security endpoints at /api/public/security
@@ -331,6 +331,60 @@ export const authService = {
       };
     } catch (error: any) {
       console.error("Error en login con Google:", error);
+      throw error;
+    }
+  },
+
+  loginWithMicrosoft: async (): Promise<AuthResponse> => {
+    try {
+      const result = await signInWithPopup(auth, microsoftProvider);
+      const firebaseUser = result.user;
+
+      if (!firebaseUser.email) {
+        throw new Error('El correo electrónico de Microsoft no está disponible.');
+      }
+
+      // Enviar la información al backend para obtener un token de nuestro sistema
+      const response = await api.post('/public/security/login-social', {
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || 'Usuario Microsoft',
+        password: '', // No password for social login
+      });
+
+      if (!response.data || !response.data.token) {
+        throw new Error('Error al sincronizar con el backend');
+      }
+
+      const token = response.data.token;
+      const payload = decodeJwt(token);
+      const userId = payload?.id || payload?.sub || '';
+      
+      let roles = userId ? await fetchUserRoles(userId, token) : [];
+      
+      if (roles.length === 0 && userId) {
+        const ciudadanoRoleId = await findCiudadanoRole();
+        if (ciudadanoRoleId) {
+          try {
+            await axios.post(
+              `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
+              {},
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            roles = ['CIUDADANO'];
+          } catch (e) {
+            console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+          }
+        }
+      }
+
+      const user = toFrontendUser(payload || {}, roles);
+
+      return {
+        user,
+        token,
+      };
+    } catch (error: any) {
+      console.error("Error en login con Microsoft:", error);
       throw error;
     }
   },

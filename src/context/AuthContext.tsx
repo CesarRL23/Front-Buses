@@ -26,23 +26,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [pending2faEmail, setPending2faEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-    const storedUser = localStorage.getItem(USER_KEY);
-    const storedPendingEmail = localStorage.getItem('pending_2fa_email');
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem(TOKEN_KEY);
+      const storedUser = localStorage.getItem(USER_KEY);
+      const storedPendingEmail = localStorage.getItem('pending_2fa_email');
 
-    if (storedToken && storedUser && !isTokenExpired(storedToken) && decodeJwt(storedToken)) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    }
+      if (storedToken && storedUser && !isTokenExpired(storedToken) && decodeJwt(storedToken)) {
+        setToken(storedToken);
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        
+        try {
+          // ⚠️ IMPORTANT: Automatically refresh user roles from backend
+          const refreshedUser = await authService.getCurrentUser(storedToken);
+          // Only update if something changed
+          if (JSON.stringify(parsedUser.roles) !== JSON.stringify(refreshedUser.roles)) {
+            setUser(refreshedUser);
+            localStorage.setItem(USER_KEY, JSON.stringify(refreshedUser));
+          }
+        } catch (error) {
+          console.warn("No se pudo refrescar roles en segundo plano:", error);
+        }
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      }
 
-    if (storedPendingEmail) {
-      setPending2faEmail(storedPendingEmail);
-    }
+      if (storedPendingEmail) {
+        setPending2faEmail(storedPendingEmail);
+      }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   // Check token validity periodically, on window focus, and on storage changes
@@ -59,7 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Check every 30 seconds
     const interval = setInterval(checkToken, 30000);
-    
+
     // Check on window focus
     const handleFocus = () => checkToken();
     window.addEventListener('focus', handleFocus);
@@ -144,6 +161,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (): Promise<void> => {
+    try {
+      const response = await authService.loginWithGoogle();
+      if (response.user && response.token) {
+        setUser(response.user);
+        setToken(response.token);
+        localStorage.setItem(TOKEN_KEY, response.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const logout = (): void => {
     setUser(null);
     setToken(null);
@@ -202,6 +233,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     forgotPassword,
     oauthLogin,
     startOAuth: authService.startOAuth,
+    loginWithGoogle,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

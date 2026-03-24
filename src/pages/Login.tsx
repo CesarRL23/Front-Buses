@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { FormInput } from '../components/FormInput';
@@ -6,7 +6,7 @@ import { Mail, Lock, Bus } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, startOAuth } = useAuth();
+  const { login, startOAuth, loginWithGoogle } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -67,8 +67,23 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    startOAuth(provider);
+  const handleSocialLogin = async (provider: string) => {
+    if (provider === 'google') {
+      setIsLoading(true);
+      setApiError('');
+      try {
+        await loginWithGoogle();
+        navigate('/dashboard');
+      } catch (error) {
+        setApiError(
+          error instanceof Error ? error.message : 'Error al iniciar sesión con Google'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      startOAuth(provider);
+    }
   };
 
   return (

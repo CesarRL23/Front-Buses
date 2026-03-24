@@ -74,7 +74,11 @@ export const Profile: React.FC = () => {
                       className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white bg-opacity-20 text-white"
                     >
                       <Shield className="h-4 w-4 mr-1" />
-                      {role === 'admin' ? 'Administrador' : 'Usuario'}
+                      {role.toUpperCase() === 'ADMIN' 
+                        ? 'Administrador' 
+                        : role.toUpperCase() === 'CIUDADANO' 
+                          ? 'Ciudadano' 
+                          : role}
                     </span>
                   ))}
                 </div>
@@ -218,7 +222,9 @@ export const Profile: React.FC = () => {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-600">Roles Asignados</p>
                   <p className="text-gray-900 mt-1">
-                    {user?.roles.join(', ')}
+                    {user?.roles && user.roles.length > 0
+                      ? user.roles.join(', ') 
+                      : 'No tienes ningún rol asignado'}
                   </p>
                 </div>
               </div>

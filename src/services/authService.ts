@@ -6,6 +6,8 @@ import {
   User,
 } from '../types/auth.types';
 import { decodeJwt, isTokenExpired } from '../utils/fakeJwt';
+import { auth, googleProvider } from '../firebase/config';
+import { signInWithPopup } from 'firebase/auth';
 
 // The backend serves public security endpoints at /api/public/security
 // but all other controllers (users, roles, user-role, etc.) at the root without /api prefix.
@@ -75,11 +77,12 @@ const toFrontendUser = (data: any, roles: string[] = []): User => {
  */
 export const fetchUserRoles = async (userId: string, token: string): Promise<string[]> => {
   try {
-    const response = await axios.get(`${ROOT_BASE}/user-role/user/${userId}`, {
+    const response = await axios.get(`${ROOT_BASE}/user-role`, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 8000,
     });
-    const userRoles: any[] = Array.isArray(response.data) ? response.data : [];
+    const allRoles: any[] = Array.isArray(response.data) ? response.data : [];
+    const userRoles = allRoles.filter((ur: any) => ur.user?.id === userId);
     return userRoles
       .map((ur: any) => ur.role?.name || ur.role?.nombre || '')
       .filter(Boolean)
@@ -274,5 +277,61 @@ export const authService = {
       user,
       refreshToken: undefined,
     };
+  },
+
+  loginWithGoogle: async (): Promise<AuthResponse> => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
+
+      if (!firebaseUser.email) {
+        throw new Error('El correo electrónico de Google no está disponible.');
+      }
+
+      // Enviar la información al backend para obtener un token de nuestro sistema
+      const response = await api.post('/public/security/login-social', {
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || 'Usuario Google',
+        password: '', // No password for social login
+      });
+
+      if (!response.data || !response.data.token) {
+        throw new Error('Error al sincronizar con el backend');
+      }
+
+      const token = response.data.token;
+      const payload = decodeJwt(token);
+      const userId = payload?.id || payload?.sub || '';
+      
+      // Intentar obtener los roles. Si es nuevo, tal vez necesitemos asignarle uno por defecto?
+      let roles = userId ? await fetchUserRoles(userId, token) : [];
+      
+      // Si no tiene roles, le asignamos CIUDADANO por defecto en el sistema
+      if (roles.length === 0 && userId) {
+        const ciudadanoRoleId = await findCiudadanoRole();
+        if (ciudadanoRoleId) {
+          try {
+            await axios.post(
+              `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
+              {},
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            roles = ['CIUDADANO'];
+          } catch (e) {
+            console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+          }
+        }
+      }
+
+      const user = toFrontendUser(payload || {}, roles);
+
+      return {
+        user,
+        token,
+      };
+    } catch (error: any) {
+      console.error("Error en login con Google:", error);
+      throw error;
+    }
   },
 };

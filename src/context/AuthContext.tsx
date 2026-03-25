@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setToken(storedToken);
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        
+
         try {
           // ⚠️ IMPORTANT: Automatically refresh user roles from backend
           const refreshedUser = await authService.getCurrentUser(storedToken);
@@ -189,6 +189,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGithub = async (): Promise<void> => {
+    try {
+      const response = await authService.loginWithGithub();
+      if (response.user && response.token) {
+        setUser(response.user);
+        setToken(response.token);
+        localStorage.setItem(TOKEN_KEY, response.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const logout = (): void => {
     setUser(null);
     setToken(null);
@@ -249,6 +263,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     startOAuth: authService.startOAuth,
     loginWithGoogle,
     loginWithMicrosoft,
+    loginWithGithub,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

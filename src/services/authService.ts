@@ -6,7 +6,7 @@ import {
   User,
 } from '../types/auth.types';
 import { decodeJwt, isTokenExpired } from '../utils/fakeJwt';
-import { auth, googleProvider, microsoftProvider } from '../firebase/config';
+import { auth, googleProvider, microsoftProvider, githubProvider } from '../firebase/config';
 import { signInWithPopup } from 'firebase/auth';
 
 // The backend serves public security endpoints at /api/public/security
@@ -302,10 +302,10 @@ export const authService = {
       const token = response.data.token;
       const payload = decodeJwt(token);
       const userId = payload?.id || payload?.sub || '';
-      
+
       // Intentar obtener los roles. Si es nuevo, tal vez necesitemos asignarle uno por defecto?
       let roles = userId ? await fetchUserRoles(userId, token) : [];
-      
+
       // Si no tiene roles, le asignamos CIUDADANO por defecto en el sistema
       if (roles.length === 0 && userId) {
         const ciudadanoRoleId = await findCiudadanoRole();
@@ -331,6 +331,9 @@ export const authService = {
       };
     } catch (error: any) {
       console.error("Error en login con Google:", error);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        throw new Error('Ya existe una cuenta con este correo electrónico pero usando otro método de inicio de sesión (ej. Microsoft o Email).');
+      }
       throw error;
     }
   },
@@ -349,6 +352,62 @@ export const authService = {
         email: firebaseUser.email,
         name: firebaseUser.displayName || 'Usuario Microsoft',
         password: '', // No password for social login
+      });
+
+      if (!response.data || !response.data.token) {
+        throw new Error('Error al sincronizar con el backend');
+      }
+
+      const token = response.data.token;
+      const payload = decodeJwt(token);
+      const userId = payload?.id || payload?.sub || '';
+
+      let roles = userId ? await fetchUserRoles(userId, token) : [];
+
+      if (roles.length === 0 && userId) {
+        const ciudadanoRoleId = await findCiudadanoRole();
+        if (ciudadanoRoleId) {
+          try {
+            await axios.post(
+              `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
+              {},
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            roles = ['CIUDADANO'];
+          } catch (e) {
+            console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+          }
+        }
+      }
+
+      const user = toFrontendUser(payload || {}, roles);
+
+      return {
+        user,
+        token,
+      };
+    } catch (error: any) {
+      console.error("Error en login con Microsoft:", error);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        throw new Error('Ya existe una cuenta con este correo electrónico pero usando otro método de inicio de sesión (ej. Google o Email).');
+      }
+      throw error;
+    }
+  },
+
+  loginWithGithub: async (): Promise<AuthResponse> => {
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      const firebaseUser = result.user;
+
+      if (!firebaseUser.email) {
+        throw new Error('El correo electrónico de GitHub no está disponible o es privado.');
+      }
+
+      const response = await api.post('/public/security/login-social', {
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || 'Usuario GitHub',
+        password: '',
       });
 
       if (!response.data || !response.data.token) {
@@ -384,7 +443,10 @@ export const authService = {
         token,
       };
     } catch (error: any) {
-      console.error("Error en login con Microsoft:", error);
+      console.error("Error en login con GitHub:", error);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        throw new Error('Ya existe una cuenta vinculada a este correo electrónico. Por favor, inicia sesión con el método que usaste originalmente.');
+      }
       throw error;
     }
   },

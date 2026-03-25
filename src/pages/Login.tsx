@@ -6,7 +6,7 @@ import { Mail, Lock, Bus } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, startOAuth, loginWithGoogle, loginWithMicrosoft } = useAuth();
+  const { login, startOAuth, loginWithGoogle, loginWithMicrosoft, loginWithGithub } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -90,6 +90,19 @@ export const Login: React.FC = () => {
       } catch (error) {
         setApiError(
           error instanceof Error ? error.message : 'Error al iniciar sesión con Microsoft'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (provider === 'github') {
+      setIsLoading(true);
+      setApiError('');
+      try {
+        await loginWithGithub();
+        navigate('/dashboard');
+      } catch (error) {
+        setApiError(
+          error instanceof Error ? error.message : 'Error al iniciar sesión con GitHub'
         );
       } finally {
         setIsLoading(false);

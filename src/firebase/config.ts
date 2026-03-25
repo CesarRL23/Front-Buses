@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, OAuthProvider, GithubAuthProvider } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -17,6 +17,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 const microsoftProvider = new OAuthProvider('microsoft.com');
+microsoftProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+const githubProvider = new GithubAuthProvider();
+githubProvider.addScope('user:email');
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 
-export { auth, googleProvider, microsoftProvider, analytics };
+export { auth, googleProvider, microsoftProvider, githubProvider, analytics };

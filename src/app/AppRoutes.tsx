@@ -9,6 +9,9 @@ import { Dashboard } from '../pages/Dashboard';
 import { Profile } from '../pages/Profile';
 import { OAuthCallback } from '../pages/OAuthCallback';
 import { AdminDashboard } from '../pages/AdminDashboard';
+import { SupervisorDashboard } from '../pages/SupervisorDashboard';
+import { ConductorDashboard } from '../pages/ConductorDashboard';
+import { CiudadanoDashboard } from '../pages/CiudadanoDashboard';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -43,6 +46,33 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <AdminDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/supervisor"
+          element={
+            <PrivateRoute>
+              <SupervisorDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/conductor"
+          element={
+            <PrivateRoute>
+              <ConductorDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/ciudadano"
+          element={
+            <PrivateRoute>
+              <CiudadanoDashboard />
             </PrivateRoute>
           }
         />

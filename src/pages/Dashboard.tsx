@@ -33,6 +33,9 @@ export const Dashboard: React.FC = () => {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
 
   const isAdmin = user?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false;
+  const isSupervisor = user?.roles?.some(r => r.toUpperCase() === 'SUPERVISOR') ?? false;
+  const isConductor = user?.roles?.some(r => r.toUpperCase() === 'CONDUCTOR') ?? false;
+  const isCiudadano = user?.roles?.some(r => r.toUpperCase() === 'CIUDADANO') ?? false;
 
   useEffect(() => {
     if (!token || !user?.id) return;
@@ -132,10 +135,40 @@ export const Dashboard: React.FC = () => {
             {isAdmin && (
               <Link
                 to="/admin"
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition"
+                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 hover:shadow-lg hover:shadow-red-200 transition-all active:scale-95"
               >
-                <Shield className="h-4 w-4 mr-1" />
-                Ir al Panel Admin →
+                <Shield className="h-4 w-4 mr-2" />
+                Panel Admin →
+              </Link>
+            )}
+
+            {isSupervisor && (
+              <Link
+                to="/supervisor"
+                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 transition-all active:scale-95"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Panel Supervisor →
+              </Link>
+            )}
+
+            {isConductor && (
+              <Link
+                to="/conductor"
+                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
+              >
+                <Bus className="h-4 w-4 mr-2" />
+                Panel Conductor →
+              </Link>
+            )}
+
+            {isCiudadano && (
+              <Link
+                to="/ciudadano"
+                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-green-600 text-white hover:bg-green-700 hover:shadow-lg hover:shadow-green-200 transition-all active:scale-95"
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                Panel Ciudadano →
               </Link>
             )}
           </div>

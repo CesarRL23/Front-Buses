@@ -140,6 +140,16 @@ export const AdminDashboard: React.FC = () => {
   const [selectedPermForRole, setSelectedPermForRole] = useState('');
   const [assigningPerm, setAssigningPerm] = useState(false);
 
+  // ── Permissions State ──
+  const [perms, setPerms] = useState({
+    canListUsers: false,
+    canEditUsers: false,
+    canDeleteUsers: false,
+    canAssignRoles: false,
+    canManageRoles: false,
+    canManagePerms: false,
+  });
+
   // ─── Feedback auto-clear ───────────────────────────────────────────────────
   useEffect(() => {
     if (!success && !error) return;
@@ -152,26 +162,51 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const [usersData, rolesData, userRolesData, rpData, permsData] = await Promise.all([
-        adminService.getUsers(),
+      const [rolesData, userRolesData, rpData, permsData] = await Promise.all([
         adminService.getRoles(),
         adminService.getAllUserRoles(),
         adminService.getAllRolePermissions(),
         adminService.getPermissions(),
       ]);
-      setUsers(usersData);
+
+      const myRoles = userRolesData.filter(ur => ur.user?.id === user?.id).map(ur => ur.role?.id);
+      const myPermRecords = rpData.filter(rp => myRoles.includes(rp.role?.id)).map(rp => rp.permission);
+
+      const hasPerm = (urlPart: string, method: string) => 
+        isAdmin || myPermRecords.some((p: any) => p?.url?.includes(urlPart) && p?.method === method);
+
+      const canListUsers = hasPerm('/users', 'GET');
+      const canEditUsers = hasPerm('/users', 'PUT');
+      const canDeleteUsers = hasPerm('/users', 'DELETE');
+      const canAssignRoles = hasPerm('/user-role', 'POST'); 
+      const canManageRoles = hasPerm('/roles', 'POST') || hasPerm('/roles', 'PUT');
+      const canManagePerms = hasPerm('/permissions', 'POST');
+
+      setPerms({ canListUsers, canEditUsers, canDeleteUsers, canAssignRoles, canManageRoles, canManagePerms });
+
+      if (canListUsers) {
+        setUsers(await adminService.getUsers());
+      } else {
+        setUsers([]);
+      }
       setRoles(rolesData);
       setAllUserRoles(userRolesData);
       setRolePermissions(rpData);
       setPermissions(permsData);
+
+      if (!canListUsers && activeTab === 'users') {
+         if (canManageRoles) setActiveTab('roles');
+         else if (canManagePerms) setActiveTab('permissions');
+      }
+
     } catch {
-      setError('Error al cargar datos. Verifica que el backend esté activo.');
+      setError('Error al cargar datos. Verifica que tu token sea válido.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id, isAdmin, activeTab]);
 
-  useEffect(() => { if (isAdmin) loadData(); }, [isAdmin, loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
   const getUserRoles = (userId: string): UserRoleRecord[] =>
@@ -362,7 +397,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // ─── Access denied ─────────────────────────────────────────────────────────
-  if (!isAdmin) {
+  if (!loading && !perms.canListUsers && !perms.canManageRoles && !perms.canManagePerms) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
@@ -372,8 +407,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Acceso Denegado</h1>
           <p className="text-gray-600 max-w-md">
-            Solo los usuarios con rol <span className="font-semibold text-red-600">ADMIN</span> pueden
-            acceder al panel de administración.
+            Solo los usuarios con rol <span className="font-semibold text-red-600">ADMIN</span> o con los permisos correspondientes pueden acceder al panel de gestión.
           </p>
         </div>
       </div>
@@ -416,13 +450,13 @@ export const AdminDashboard: React.FC = () => {
         <Feedback error={error} success={success} />
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 shadow-sm w-fit">
+        <div className="flex flex-wrap gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 shadow-sm w-fit">
           {([
-            { key: 'users',       label: 'Usuarios',    icon: Users },
-            { key: 'roles',       label: 'Roles',       icon: Briefcase },
-            { key: 'permissions', label: 'Permisos',    icon: Key },
-            { key: 'rolePerms',   label: 'Roles → Permisos', icon: Lock },
-          ] as const).map(({ key, label, icon: Icon }) => (
+            perms.canListUsers ? { key: 'users', label: 'Usuarios', icon: Users } : null,
+            perms.canManageRoles ? { key: 'roles', label: 'Roles', icon: Briefcase } : null,
+            perms.canManagePerms ? { key: 'permissions', label: 'Permisos', icon: Key } : null,
+            perms.canManagePerms ? { key: 'rolePerms', label: 'Roles → Permisos', icon: Lock } : null,
+          ].filter(Boolean) as any[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
@@ -450,45 +484,47 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'users' && (
               <div className="space-y-6">
                 {/* Assign role form */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <UserCheck className="h-5 w-5 text-blue-600" />
-                    Asignar Rol a Usuario
-                  </h2>
-                  <form onSubmit={handleAssignRole} className="flex flex-col sm:flex-row gap-3">
-                    <select
-                      id="select-user"
-                      value={selectedUserId}
-                      onChange={e => setSelectedUserId(e.target.value)}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">— Seleccionar usuario —</option>
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                      ))}
-                    </select>
-                    <select
-                      id="select-role"
-                      value={selectedRoleId}
-                      onChange={e => setSelectedRoleId(e.target.value)}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">— Seleccionar rol —</option>
-                      {roles.map(r => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="submit"
-                      disabled={assigning}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {assigning ? 'Asignando...' : 'Asignar Rol'}
-                    </button>
-                  </form>
-                </div>
+                {perms.canAssignRoles && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <UserCheck className="h-5 w-5 text-blue-600" />
+                      Asignar Rol a Usuario
+                    </h2>
+                    <form onSubmit={handleAssignRole} className="flex flex-col sm:flex-row gap-3">
+                      <select
+                        id="select-user"
+                        value={selectedUserId}
+                        onChange={e => setSelectedUserId(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">— Seleccionar usuario —</option>
+                        {users.map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                        ))}
+                      </select>
+                      <select
+                        id="select-role"
+                        value={selectedRoleId}
+                        onChange={e => setSelectedRoleId(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">— Seleccionar rol —</option>
+                        {roles.map(r => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="submit"
+                        disabled={assigning}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {assigning ? 'Asignando...' : 'Asignar Rol'}
+                      </button>
+                    </form>
+                  </div>
+                )}
 
                 {/* Edit user modal-inline */}
                 {editingUser && (
@@ -566,20 +602,24 @@ export const AdminDashboard: React.FC = () => {
                                 </td>
                                 <td className="py-3 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    <button
-                                      onClick={() => startEditUser(u)}
-                                      title="Editar usuario"
-                                      className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteUser(u)}
-                                      title="Eliminar usuario"
-                                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
+                                    {perms.canEditUsers && (
+                                      <button
+                                        onClick={() => startEditUser(u)}
+                                        title="Editar usuario"
+                                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                    {perms.canDeleteUsers && (
+                                      <button
+                                        onClick={() => handleDeleteUser(u)}
+                                        title="Eliminar usuario"
+                                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -600,13 +640,15 @@ export const AdminDashboard: React.FC = () => {
                                             }`}
                                           >
                                             {ur.role?.name}
-                                            <button
-                                              onClick={() => handleRemoveUserRole(ur)}
-                                              title="Quitar rol"
-                                              className="hover:opacity-70 transition"
-                                            >
-                                              <X className="h-3 w-3" />
-                                            </button>
+                                            {perms.canAssignRoles && (
+                                              <button
+                                                onClick={() => handleRemoveUserRole(ur)}
+                                                title="Quitar rol"
+                                                className="hover:opacity-70 transition"
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </button>
+                                            )}
                                           </span>
                                         ))}
                                       </div>

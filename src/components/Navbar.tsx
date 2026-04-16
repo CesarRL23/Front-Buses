@@ -1,13 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Bus, LogOut, User, Shield } from 'lucide-react';
+import { adminService } from '../services/adminService';
 
 export const Navbar: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
 
   const isAdmin = user?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false;
+  const [canManage, setCanManage] = useState(isAdmin);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (isAdmin) { setCanManage(true); return; }
+
+    Promise.all([
+      adminService.getAllUserRoles(),
+      adminService.getAllRolePermissions()
+    ]).then(([userRoles, allPerms]) => {
+      const myRoles = userRoles.filter(ur => ur.user?.id === user?.id).map(ur => ur.role?.id);
+      const myPerms = allPerms.filter(rp => myRoles.includes(rp.role?.id));
+      setCanManage(myPerms.length > 0);
+    }).catch(() => {});
+  }, [isAuthenticated, isAdmin, user?.id]);
 
   const handleLogout = () => {
     logout();
@@ -29,13 +45,13 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center space-x-2">
             {isAuthenticated ? (
               <>
-                {isAdmin && (
+                {canManage && (
                   <Link
                     to="/admin"
                     className="flex items-center space-x-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md transition text-sm font-medium"
                   >
                     <Shield className="h-4 w-4" />
-                    <span className="hidden sm:inline">Panel Admin</span>
+                    <span className="hidden sm:inline">Panel de Gestión</span>
                   </Link>
                 )}
                 <Link

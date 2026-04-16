@@ -47,6 +47,23 @@ export const adminService = {
     return Array.isArray(res.data) ? res.data : [];
   },
 
+  /** Create role — POST /roles */
+  createRole: async (data: { name: string; description?: string }): Promise<any> => {
+    const res = await axios.post(`${ROOT_BASE}/roles`, data, { headers: getAuthHeaders() });
+    return res.data;
+  },
+
+  /** Update role — PUT /roles/{id} */
+  updateRole: async (id: string, data: { name: string; description?: string }): Promise<any> => {
+    const res = await axios.put(`${ROOT_BASE}/roles/${id}`, data, { headers: getAuthHeaders() });
+    return res.data;
+  },
+
+  /** Delete role — DELETE /roles/{id} */
+  deleteRole: async (id: string): Promise<void> => {
+    await axios.delete(`${ROOT_BASE}/roles/${id}`, { headers: getAuthHeaders() });
+  },
+
   // ══════════════════════════════
   //  USER ROLES
   // ══════════════════════════════

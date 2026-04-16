@@ -20,10 +20,11 @@ import {
   Save,
   Lock,
   Unlock,
+  Briefcase,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Role { id: string; name: string; }
+interface Role { id: string; name: string; description?: string; }
 interface Permission { id: string; url: string; method: string; description: string; }
 interface UserRecord { id: string; name: string; email: string; }
 interface UserRoleRecord { id: string; user: UserRecord; role: Role; }
@@ -104,7 +105,7 @@ export const AdminDashboard: React.FC = () => {
   const [rolePermissions, setRolePermissions] = useState<RolePermissionRecord[]>([]);
 
   // UI
-  const [activeTab, setActiveTab]       = useState<'users' | 'permissions' | 'rolePerms'>('users');
+  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms'>('users');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [success, setSuccess]           = useState('');
@@ -122,6 +123,11 @@ export const AdminDashboard: React.FC = () => {
 
   // Expanded row for user roles
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+
+  // ── Roles tab state ──
+  const [roleForm, setRoleForm]         = useState({ name: '', description: '' });
+  const [editingRole, setEditingRole]   = useState<Role | null>(null);
+  const [savingRole, setSavingRole]     = useState(false);
 
   // ── Permissions tab state ──
   const [permForm, setPermForm]         = useState({ url: '', method: 'GET', description: '' });
@@ -282,6 +288,46 @@ export const AdminDashboard: React.FC = () => {
     });
   };
 
+  // ─── Role handlers ──────────────────────────────────────────────────────────
+  const handleSaveRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingRole(true); setError(''); setSuccess('');
+    try {
+      if (editingRole) {
+        await adminService.updateRole(editingRole.id, roleForm);
+        setSuccess('Rol actualizado.');
+      } else {
+        await adminService.createRole(roleForm);
+        setSuccess('Rol creado.');
+      }
+      setEditingRole(null);
+      setRoleForm({ name: '', description: '' });
+      await loadData();
+    } catch {
+      setError('Error al guardar el rol.');
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  const startEditRole = (r: Role) => {
+    setEditingRole(r);
+    setRoleForm({ name: r.name, description: r.description || '' });
+  };
+
+  const handleDeleteRole = (r: Role) => {
+    ask(`¿Eliminar el rol "${r.name}"?`, async () => {
+      setConfirmDialog(null);
+      try {
+        await adminService.deleteRole(r.id);
+        setSuccess('Rol eliminado.');
+        await loadData();
+      } catch {
+        setError('Error al eliminar el rol.');
+      }
+    });
+  };
+
   // ─── Role-Permission handlers ──────────────────────────────────────────────
   const handleAssignPermToRole = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -372,9 +418,10 @@ export const AdminDashboard: React.FC = () => {
         {/* Tabs */}
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 shadow-sm w-fit">
           {([
-            { key: 'users',     label: 'Usuarios',    icon: Users },
-            { key: 'permissions', label: 'Permisos',  icon: Key },
-            { key: 'rolePerms', label: 'Roles → Permisos', icon: Lock },
+            { key: 'users',       label: 'Usuarios',    icon: Users },
+            { key: 'roles',       label: 'Roles',       icon: Briefcase },
+            { key: 'permissions', label: 'Permisos',    icon: Key },
+            { key: 'rolePerms',   label: 'Roles → Permisos', icon: Lock },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -577,6 +624,107 @@ export const AdminDashboard: React.FC = () => {
                             </td>
                           </tr>
                         )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════
+                TAB: ROLES
+            ══════════════════════════════════════════ */}
+            {activeTab === 'roles' && (
+              <div className="space-y-6">
+                {/* Create / Edit role form */}
+                <div className={`rounded-xl border p-6 ${editingRole ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200 shadow-sm'}`}>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    {editingRole ? <Pencil className="h-5 w-5 text-amber-600" /> : <Plus className="h-5 w-5 text-blue-600" />}
+                    {editingRole ? 'Editando Rol' : 'Nuevo Rol'}
+                  </h2>
+                  <form onSubmit={handleSaveRole} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nombre (ej: ADMIN)"
+                      value={roleForm.name}
+                      onChange={e => setRoleForm(f => ({ ...f, name: e.target.value.toUpperCase() }))}
+                      required
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Descripción"
+                      value={roleForm.description}
+                      onChange={e => setRoleForm(f => ({ ...f, description: e.target.value }))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="flex gap-2">
+                       <button
+                        type="submit"
+                        disabled={savingRole}
+                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+                      >
+                        <Save className="h-4 w-4" />
+                        {savingRole ? 'Guardando...' : editingRole ? 'Actualizar' : 'Crear'}
+                      </button>
+                      {editingRole && (
+                        <button
+                          type="button"
+                          onClick={() => { setEditingRole(null); setRoleForm({ name: '', description: '' }); }}
+                          className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 transition"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* Roles list */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-purple-600" />
+                    Roles del Sistema
+                    <span className="ml-auto text-xs font-normal text-gray-400">{roles.length} total</span>
+                  </h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 text-left text-gray-400 text-xs uppercase tracking-wider">
+                          <th className="pb-3 pr-4">Nombre</th>
+                          <th className="pb-3 pr-4">Descripción</th>
+                          <th className="pb-3 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {roles.map(r => (
+                          <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
+                            <td className="py-3 pr-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${ROLE_COLORS[r.name?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                {r.name}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 text-gray-600">{r.description || 'Sin descripción'}</td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => startEditRole(r)}
+                                  title="Editar rol"
+                                  className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRole(r)}
+                                  title="Eliminar rol"
+                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>

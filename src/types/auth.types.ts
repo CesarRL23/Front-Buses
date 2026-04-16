@@ -13,6 +13,7 @@ export interface User {
 export interface LoginCredentials {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface RegisterCredentials {
@@ -21,6 +22,7 @@ export interface RegisterCredentials {
   email: string;
   password: string;
   confirmPassword: string;
+  captchaToken?: string;
 }
 
 export interface AuthResponse {

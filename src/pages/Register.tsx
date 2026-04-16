@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { FormInput } from '../components/FormInput';
 import { PasswordStrengthIndicator } from '../components/PasswordStrengthIndicator';
 import { Mail, Lock, User as UserIcon, Bus } from 'lucide-react';
 import { validatePassword } from '../utils/fakeJwt';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -18,6 +20,7 @@ export const Register: React.FC = () => {
     confirmPassword: '',
   });
 
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
@@ -29,6 +32,11 @@ export const Register: React.FC = () => {
       [e.target.name]: e.target.value,
     });
     setErrors({ ...errors, [e.target.name]: '' });
+    setApiError('');
+  };
+
+  const onCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
     setApiError('');
   };
 
@@ -62,6 +70,11 @@ export const Register: React.FC = () => {
       newErrors.terms = 'Debes aceptar los términos y condiciones';
     }
 
+    if (!captchaToken) {
+      setApiError('Por favor verifica que no eres un robot');
+      return false;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -75,12 +88,14 @@ export const Register: React.FC = () => {
     setApiError('');
 
     try {
-      await register(formData);
+      await register({ ...formData, captchaToken: captchaToken || '' });
       navigate('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       setApiError(
-        error instanceof Error ? error.message : 'Error al registrar usuario'
+        error.response?.data?.message || error.message || 'Error al registrar usuario'
       );
+      setCaptchaToken(null);
+      recaptchaRef.current?.reset();
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +184,14 @@ export const Register: React.FC = () => {
             icon={<Lock className="h-5 w-5 text-gray-400" />}
             error={errors.confirmPassword}
           />
+
+          <div className="flex justify-center my-4">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey="6LeO8rosAAAAANdEwKEoMaSlgQ3tExMhl0r4VUUu"
+              onChange={onCaptchaChange}
+            />
+          </div>
 
           <div>
             <label className="flex items-start">

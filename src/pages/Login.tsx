@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { FormInput } from '../components/FormInput';
 import { Mail, Lock, Bus } from 'lucide-react';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login, startOAuth, loginWithGoogle, loginWithMicrosoft, loginWithGithub } = useAuth();
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
 
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
@@ -23,6 +26,11 @@ export const Login: React.FC = () => {
       [e.target.name]: e.target.value,
     });
     setErrors({ ...errors, [e.target.name]: '' });
+    setApiError('');
+  };
+
+  const onCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
     setApiError('');
   };
 
@@ -39,6 +47,11 @@ export const Login: React.FC = () => {
       newErrors.password = 'La contraseña es requerida';
     }
 
+    if (!captchaToken) {
+      setApiError('Por favor verifica que no eres un robot');
+      return false;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -52,16 +65,19 @@ export const Login: React.FC = () => {
     setApiError('');
 
     try {
-      await login(formData);
+      await login({ ...formData, captchaToken: captchaToken || '' });
       if (localStorage.getItem('pending_2fa_email')) {
         navigate('/two-factor');
       } else {
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       setApiError(
-        error instanceof Error ? error.message : 'Error al iniciar sesión'
+        error.response?.data?.message || error.message || 'Error al iniciar sesión'
       );
+      // Reset captcha on error
+      setCaptchaToken(null);
+      recaptchaRef.current?.reset();
     } finally {
       setIsLoading(false);
     }
@@ -153,6 +169,14 @@ export const Login: React.FC = () => {
             icon={<Lock className="h-5 w-5 text-gray-400" />}
             error={errors.password}
           />
+
+          <div className="flex justify-center my-4">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey="6LeO8rosAAAAANdEwKEoMaSlgQ3tExMhl0r4VUUu"
+              onChange={onCaptchaChange}
+            />
+          </div>
 
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center">

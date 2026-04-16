@@ -113,6 +113,7 @@ export const authService = {
     const response = await api.post('/public/security/login', {
       email: credentials.email,
       password: credentials.password,
+      captchaToken: credentials.captchaToken,
     });
 
     if (response.data.message === '2FA required') {
@@ -179,6 +180,7 @@ export const authService = {
     const loginResponse = await authService.login({
       email: credentials.email,
       password: credentials.password,
+      captchaToken: credentials.captchaToken,
     });
 
     // If 2FA is required, we return the 2FA state and the admin can assign CIUDADANO later

@@ -46,6 +46,7 @@ export interface AuthContextType extends AuthState {
   updateProfile: (user: Partial<User>) => Promise<void>;
   verifyTwoFactor: (code: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   oauthLogin: (token: string) => Promise<void>;
   startOAuth: (provider: string) => void;
   loginWithGoogle: () => Promise<void>;

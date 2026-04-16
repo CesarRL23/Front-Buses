@@ -248,6 +248,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email: string, code: string, newPassword: string): Promise<void> => {
+    try {
+      await authService.resetPassword(email, code, newPassword);
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -259,6 +267,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateProfile,
     verifyTwoFactor,
     forgotPassword,
+    resetPassword,
     oauthLogin,
     startOAuth: authService.startOAuth,
     loginWithGoogle,

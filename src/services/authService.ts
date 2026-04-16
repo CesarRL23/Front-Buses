@@ -240,6 +240,11 @@ export const authService = {
     await api.post('/public/security/forgot-password', { email });
   },
 
+  resetPassword: async (email: string, code: string, newPassword: string): Promise<void> => {
+    await api.post('/public/security/reset-password', { email, code, newPassword });
+  },
+
+
   updateProfile: async (userId: string, data: Partial<User>): Promise<User> => {
     const payload: any = {
       name: `${data.firstName || ''} ${data.lastName || ''}`.trim(),

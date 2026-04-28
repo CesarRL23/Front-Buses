@@ -37,10 +37,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(parsedUser);
 
         try {
-          // ⚠️ IMPORTANT: Automatically refresh user roles from backend
+          // ⚠️ IMPORTANT: Automatically refresh user data (roles and permissions) from backend
           const refreshedUser = await authService.getCurrentUser(storedToken);
-          // Only update if something changed
-          if (JSON.stringify(parsedUser.roles) !== JSON.stringify(refreshedUser.roles)) {
+          
+          // Check if either roles or permissions have changed to update the user state
+          const rolesChanged = JSON.stringify(parsedUser.roles) !== JSON.stringify(refreshedUser.roles);
+          const permsChanged = JSON.stringify(parsedUser.permissions) !== JSON.stringify(refreshedUser.permissions);
+          
+          if (rolesChanged || permsChanged) {
             setUser(refreshedUser);
             localStorage.setItem(USER_KEY, JSON.stringify(refreshedUser));
           }

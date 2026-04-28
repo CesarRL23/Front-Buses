@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { CompanyManager } from '../components/CompanyManager';
 
 
 const ROLE_COLORS: Record<string, string> = {
@@ -132,45 +133,6 @@ export const Dashboard: React.FC = () => {
                 Sin rol asignado
               </span>
             )}
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 hover:shadow-lg hover:shadow-red-200 transition-all active:scale-95"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Panel Admin →
-              </Link>
-            )}
-
-            {isSupervisor && (
-              <Link
-                to="/supervisor"
-                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 transition-all active:scale-95"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Panel Supervisor →
-              </Link>
-            )}
-
-            {isConductor && (
-              <Link
-                to="/conductor"
-                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
-              >
-                <Bus className="h-4 w-4 mr-2" />
-                Panel Conductor →
-              </Link>
-            )}
-
-            {isCiudadano && (
-              <Link
-                to="/ciudadano"
-                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-green-600 text-white hover:bg-green-700 hover:shadow-lg hover:shadow-green-200 transition-all active:scale-95"
-              >
-                <MapPin className="h-4 w-4 mr-2" />
-                Panel Ciudadano →
-              </Link>
-            )}
           </div>
         </div>
 
@@ -191,6 +153,11 @@ export const Dashboard: React.FC = () => {
               <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
             </div>
           ))}
+        </div>
+
+        {/* GESTIÓN DE EMPRESAS (Dinámico por permisos) */}
+        <div className="mb-8">
+          <CompanyManager />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

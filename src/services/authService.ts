@@ -4,6 +4,7 @@ import {
   RegisterCredentials,
   AuthResponse,
   User,
+  Permission,
 } from '../types/auth.types';
 import { decodeJwt, isTokenExpired } from '../utils/fakeJwt';
 import { auth, googleProvider, microsoftProvider, githubProvider } from '../firebase/config';
@@ -54,7 +55,7 @@ api.interceptors.response.use(
   }
 );
 
-const toFrontendUser = (data: any, roles: string[] = []): User => {
+const toFrontendUser = (data: any, roles: string[] = [], permissions: Permission[] = []): User => {
   const name = data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim();
   const names = name.split(' ').filter(Boolean);
 
@@ -68,6 +69,7 @@ const toFrontendUser = (data: any, roles: string[] = []): User => {
     phoneNumber: data.phoneNumber,
     twoFactorEnabled: data.twoFactorEnabled ?? false,
     name,
+    permissions: permissions.length > 0 ? permissions : (data.permissions || []),
   };
 };
 
@@ -87,6 +89,30 @@ export const fetchUserRoles = async (userId: string, token: string): Promise<str
       .map((ur: any) => ur.role?.name || ur.role?.nombre || '')
       .filter(Boolean)
       .map((r: string) => r.toUpperCase());
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Fetches the permissions assigned to the roles.
+ */
+export const fetchUserPermissions = async (roles: string[], token: string): Promise<Permission[]> => {
+  try {
+    const response = await axios.get(`${ROOT_BASE}/role-permission`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 8000,
+    });
+    const allRolePermissions: any[] = Array.isArray(response.data) ? response.data : [];
+    
+    const userPermissions = allRolePermissions.filter((rp: any) => 
+      roles.includes((rp.role?.name || rp.role?.nombre || '').toUpperCase())
+    );
+
+    return userPermissions.map((rp: any) => ({
+      url: rp.permission?.url || '',
+      method: rp.permission?.method || '',
+    })).filter(p => p.url && p.method);
   } catch {
     return [];
   }
@@ -131,7 +157,8 @@ export const authService = {
     const payload = decodeJwt(token);
     const userId = payload?.id || payload?.sub || '';
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const user = toFrontendUser(payload || {}, roles);
+    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const user = toFrontendUser(payload || {}, roles, permissions);
 
     return {
       user,
@@ -154,7 +181,8 @@ export const authService = {
     const payload = decodeJwt(token);
     const userId = payload?.id || payload?.sub || '';
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const user = toFrontendUser(payload || {}, roles);
+    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const user = toFrontendUser(payload || {}, roles, permissions);
 
     return {
       user,
@@ -209,8 +237,9 @@ export const authService = {
 
     // Step 4: Re-fetch roles and return enriched user
     const roles = userId ? await fetchUserRoles(userId, token) : [];
+    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
     const payload = decodeJwt(token);
-    const user = toFrontendUser(payload || {}, roles);
+    const user = toFrontendUser(payload || {}, roles, permissions);
 
     return {
       user,
@@ -230,7 +259,8 @@ export const authService = {
     const payload = decodeJwt(token);
     const userId = payload?.id || payload?.sub || '';
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const user = toFrontendUser(payload || {}, roles);
+    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const user = toFrontendUser(payload || {}, roles, permissions);
 
     return {
       user,
@@ -267,7 +297,8 @@ export const authService = {
     const payload = decodeJwt(token);
     const userId = payload?.id || payload?.sub || '';
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    return toFrontendUser(payload || {}, roles);
+    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    return toFrontendUser(payload || {}, roles, permissions);
   },
 
   startOAuth: (provider: string): void => {
@@ -278,7 +309,8 @@ export const authService = {
     const payload = decodeJwt(token);
     const userId = payload?.id || payload?.sub || '';
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const user = toFrontendUser(payload || {}, roles);
+    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const user = toFrontendUser(payload || {}, roles, permissions);
     return {
       token,
       user,
@@ -330,7 +362,8 @@ export const authService = {
         }
       }
 
-      const user = toFrontendUser(payload || {}, roles);
+      const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+      const user = toFrontendUser(payload || {}, roles, permissions);
 
       return {
         user,
@@ -387,7 +420,8 @@ export const authService = {
         }
       }
 
-      const user = toFrontendUser(payload || {}, roles);
+      const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+      const user = toFrontendUser(payload || {}, roles, permissions);
 
       return {
         user,
@@ -443,7 +477,8 @@ export const authService = {
         }
       }
 
-      const user = toFrontendUser(payload || {}, roles);
+      const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+      const user = toFrontendUser(payload || {}, roles, permissions);
 
       return {
         user,

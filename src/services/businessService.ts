@@ -99,5 +99,58 @@ export const businessService = {
     await businessApi.delete(`/company/${id}`);
   },
   
+  getRoutes: async (companyId?: number) => {
+    const url = companyId ? `/route?companyId=${companyId}` : '/route';
+    const response = await businessApi.get(url);
+    return response.data;
+  },
+
+  getRouteById: async (id: number) => {
+    const response = await businessApi.get(`/route/${id}`);
+    return response.data;
+  },
+
+  getRouteNodos: async (routeId: number) => {
+    const response = await businessApi.get(`/route/${routeId}/nodos`);
+    return response.data;
+  },
+
+  createRoute: async (data: any) => {
+    const response = await businessApi.post('/route', data);
+    return response.data;
+  },
+
+  updateRoute: async (id: number, data: any) => {
+    const response = await businessApi.patch(`/route/${id}`, data);
+    return response.data;
+  },
+
+  deleteRoute: async (id: number) => {
+    await businessApi.delete(`/route/${id}`);
+  },
+
+  // ══════════════════════════════
+  //  BUSES
+  // ══════════════════════════════
+  getBuses: async (companyId?: number) => {
+    const url = companyId ? `/bus?companyId=${companyId}` : '/bus';
+    const response = await businessApi.get(url);
+    return response.data;
+  },
+
+  createBus: async (data: any) => {
+    const response = await businessApi.post('/bus', data);
+    return response.data;
+  },
+
+  updateBus: async (id: number, data: any) => {
+    const response = await businessApi.patch(`/bus/${id}`, data);
+    return response.data;
+  },
+
+  deleteBus: async (id: number) => {
+    await businessApi.delete(`/bus/${id}`);
+  },
+
   // Add more methods as needed for buses, routes, etc.
 };

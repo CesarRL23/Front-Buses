@@ -12,6 +12,7 @@ import { AdminDashboard } from '../pages/AdminDashboard';
 import { SupervisorDashboard } from '../pages/SupervisorDashboard';
 import { ConductorDashboard } from '../pages/ConductorDashboard';
 import { CiudadanoDashboard } from '../pages/CiudadanoDashboard';
+import { AdminEmpresaDashboard } from '../pages/AdminEmpresaDashboard';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -73,6 +74,15 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <CiudadanoDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin-empresa"
+          element={
+            <PrivateRoute>
+              <AdminEmpresaDashboard />
             </PrivateRoute>
           }
         />

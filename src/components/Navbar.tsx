@@ -1,34 +1,82 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Bus, LogOut, User, Shield, ChevronDown, LayoutDashboard, MapPin } from 'lucide-react';
+import { Bus, LogOut, User, Shield, ChevronDown, LayoutDashboard, MapPin, Building } from 'lucide-react';
 import { adminService } from '../services/adminService';
+
+// Configuración de metadatos por rol para el menú
+const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc: string; color: string }> = {
+  'ADMIN': {
+    path: '/admin',
+    icon: Shield,
+    title: 'Administrador',
+    desc: 'Gestión total del sistema',
+    color: 'text-red-600 hover:bg-red-50 hover:text-red-700'
+  },
+  'SUPERVISOR': {
+    path: '/supervisor',
+    icon: Shield,
+    title: 'Supervisor',
+    desc: 'Monitoreo y reportes',
+    color: 'text-purple-600 hover:bg-purple-50 hover:text-purple-700'
+  },
+  'CONDUCTOR': {
+    path: '/conductor',
+    icon: Bus,
+    title: 'Conductor',
+    desc: 'Rutas e itinerarios',
+    color: 'text-blue-600 hover:bg-blue-50 hover:text-blue-700'
+  },
+  'CIUDADANO': {
+    path: '/ciudadano',
+    icon: MapPin,
+    title: 'Ciudadano',
+    desc: 'Consulta de rutas',
+    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
+  },
+  'ADMIN EMPRESA': {
+    path: '/admin-empresa',
+    icon: Building,
+    title: 'Admin Empresa',
+    desc: 'Gestión de rutas y buses',
+    color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
+  },
+  'ADMIN_EMPRESA': {
+    path: '/admin-empresa',
+    icon: Building,
+    title: 'Admin Empresa',
+    desc: 'Gestión de rutas y buses',
+    color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
+  },
+  'ADMINEMPRESA': {
+    path: '/admin-empresa',
+    icon: Building,
+    title: 'Admin Empresa',
+    desc: 'Gestión de rutas y buses',
+    color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
+  }
+};
+
+const normalizeRole = (role: string) => role.toUpperCase().replace(/[_\s-]/g, ' ');
+const normalizeRoleKey = (role: string) => role.toUpperCase().replace(/[_\s-]/g, '');
 
 export const Navbar: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const isAdmin = user?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false;
-  const isSupervisor = user?.roles?.some(r => r.toUpperCase() === 'SUPERVISOR') ?? false;
-  const isConductor = user?.roles?.some(r => r.toUpperCase() === 'CONDUCTOR') ?? false;
-  const isCiudadano = user?.roles?.some(r => r.toUpperCase() === 'CIUDADANO') ?? false;
-
-  const [canManage, setCanManage] = useState(isAdmin);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    const isAdmin = user?.roles?.some(r => r.toUpperCase() === 'ADMIN');
     if (isAdmin) { setCanManage(true); return; }
 
-    Promise.all([
-      adminService.getAllUserRoles(),
-      adminService.getAllRolePermissions()
-    ]).then(([userRoles, allPerms]) => {
-      const myRoles = userRoles.filter(ur => ur.user?.id === user?.id).map(ur => ur.role?.id);
-      const myPerms = allPerms.filter(rp => myRoles.includes(rp.role?.id));
-      setCanManage(myPerms.length > 0);
+    adminService.getAllUserRoles().then(userRoles => {
+      const myRoles = userRoles.filter(ur => ur.user?.id === user?.id);
+      setCanManage(myRoles.length > 0);
     }).catch(() => {});
-  }, [isAuthenticated, isAdmin, user?.id]);
+  }, [isAuthenticated, user?.id, user?.roles]);
 
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -47,6 +95,30 @@ export const Navbar: React.FC = () => {
     navigate('/login');
   };
 
+  const getUserPanels = () => {
+    if (!user?.roles) return [];
+    console.log("Current User Roles:", user.roles); // Para depuración
+    return user.roles.map(roleName => {
+      const upperRole = roleName.toUpperCase();
+      const normalizedKey = normalizeRoleKey(roleName);
+      
+      // Intentar buscar por nombre exacto, luego normalizado con espacios, luego sin nada
+      const config = ROLE_CONFIG[upperRole] || 
+                     ROLE_CONFIG[normalizeRole(roleName)] || 
+                     ROLE_CONFIG[normalizedKey] || 
+                     {
+                       path: '/dashboard',
+                       icon: Shield,
+                       title: roleName,
+                       desc: 'Panel de control',
+                       color: 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
+                     };
+      return { ...config, id: roleName };
+    });
+  };
+
+  const userPanels = getUserPanels();
+
   return (
     <nav className="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -62,8 +134,8 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center space-x-2">
             {isAuthenticated ? (
               <>
-                {/* Dropdown de Paneles */}
-                {(isAdmin || isSupervisor || isConductor || isCiudadano) && (
+                {/* Dropdown de Paneles Dinámico */}
+                {userPanels.length > 0 && (
                   <div className="relative" ref={dropdownRef}>
                     <button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -76,63 +148,25 @@ export const Navbar: React.FC = () => {
 
                     {isDropdownOpen && (
                       <div 
-                        className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100 overflow-hidden"
+                        className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100 overflow-hidden"
                       >
                         <div className="px-4 py-2 border-b border-gray-50">
                           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Mis Paneles</p>
                         </div>
-                        {isAdmin && (
+                        {userPanels.map((panel) => (
                           <Link
-                            to="/admin"
-                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+                            key={panel.id}
+                            to={panel.path}
+                            className={`flex items-center px-4 py-3 text-sm transition-colors ${panel.color}`}
                             onClick={() => setIsDropdownOpen(false)}
                           >
-                            <Shield className="h-4 w-4 mr-3 text-red-600" />
+                            <panel.icon className="h-4 w-4 mr-3" />
                             <div className="flex flex-col">
-                              <span className="font-semibold">Administrador</span>
-                              <span className="text-xs text-gray-500">Gestión total del sistema</span>
+                              <span className="font-semibold">{panel.title}</span>
+                              <span className="text-xs opacity-70">{panel.desc}</span>
                             </div>
                           </Link>
-                        )}
-                        {isSupervisor && (
-                          <Link
-                            to="/supervisor"
-                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                            onClick={() => setIsDropdownOpen(false)}
-                          >
-                            <Shield className="h-4 w-4 mr-3 text-purple-600" />
-                            <div className="flex flex-col">
-                              <span className="font-semibold">Supervisor</span>
-                              <span className="text-xs text-gray-500">Monitoreo y reportes</span>
-                            </div>
-                          </Link>
-                        )}
-                        {isConductor && (
-                          <Link
-                            to="/conductor"
-                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                            onClick={() => setIsDropdownOpen(false)}
-                          >
-                            <Bus className="h-4 w-4 mr-3 text-blue-600" />
-                            <div className="flex flex-col">
-                              <span className="font-semibold">Conductor</span>
-                              <span className="text-xs text-gray-500">Rutas e itinerarios</span>
-                            </div>
-                          </Link>
-                        )}
-                        {isCiudadano && (
-                          <Link
-                            to="/ciudadano"
-                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors"
-                            onClick={() => setIsDropdownOpen(false)}
-                          >
-                            <MapPin className="h-4 w-4 mr-3 text-green-600" />
-                            <div className="flex flex-col">
-                              <span className="font-semibold">Ciudadano</span>
-                              <span className="text-xs text-gray-500">Consulta de rutas</span>
-                            </div>
-                          </Link>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>

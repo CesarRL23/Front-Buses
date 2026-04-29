@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { 
@@ -17,9 +17,11 @@ import {
   MessageCircle,
   Share2
 } from 'lucide-react';
+import { RoutesExplorer } from '../components/RoutesExplorer';
 
 export const CiudadanoDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [showRoutes, setShowRoutes] = useState(false);
   
   const balance = '32.400 COP';
   const favorites = [
@@ -42,6 +44,10 @@ export const CiudadanoDashboard: React.FC = () => {
       <Navbar />
       
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+        {showRoutes ? (
+          <RoutesExplorer onClose={() => setShowRoutes(false)} />
+        ) : (
+        <>
         {/* Header with Search and Quick Info */}
         <section className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
            <div className="space-y-2">
@@ -64,6 +70,10 @@ export const CiudadanoDashboard: React.FC = () => {
                  <Navigation className="w-5 h-5" />
                  Planear Viaje
               </button>
+               <button onClick={() => setShowRoutes(true)} className="bg-white text-blue-600 border-2 border-blue-600 font-bold px-8 py-4 rounded-3xl shadow-sm hover:bg-blue-50 hover:scale-105 transition-all flex items-center justify-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Explorar Rutas
+               </button>
            </div>
         </section>
 
@@ -162,9 +172,9 @@ export const CiudadanoDashboard: React.FC = () => {
                     ))}
                  </div>
                  
-                 <button className="mt-8 w-full bg-orange-900 text-white font-bold py-4 rounded-2xl hover:bg-orange-950 transition-all shadow-lg flex items-center justify-center gap-2">
+                 <button onClick={() => setShowRoutes(true)} className="mt-8 w-full bg-orange-900 text-white font-bold py-4 rounded-2xl hover:bg-orange-950 transition-all shadow-lg flex items-center justify-center gap-2">
                     <Filter className="w-5 h-5" />
-                    Filtar rutas
+                    Explorar rutas
                  </button>
               </div>
            </div>
@@ -208,6 +218,8 @@ export const CiudadanoDashboard: React.FC = () => {
               </div>
            </div>
         </section>
+        </>
+        )}
       </main>
       
       {/* Footer Minimalist */}

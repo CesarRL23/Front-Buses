@@ -102,24 +102,27 @@ export const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Bienvenido, {user?.firstName} {user?.lastName}
-          </h1>
-          <p className="text-gray-600 mt-2">Panel de control del sistema de Buses Inteligentes</p>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="hero-panel mb-8 overflow-hidden p-6 lg:p-8">
+          <div className="grid gap-8 lg:grid-cols-[1.4fr_0.9fr] lg:items-center">
+            <div>
+              <span className="pill-badge">Red de buses y rutas urbanas</span>
+              <h1 className="mt-4 font-['Space_Grotesk'] text-3xl font-bold tracking-tight sm:text-4xl">
+                Bienvenido, {user?.firstName} {user?.lastName}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-sky-50/90 sm:text-base">
+                Controla la operación, revisa rutas activas y supervisa el estado de la flota desde un panel más claro y profesional.
+              </p>
 
-          {/* Roles badges */}
-          <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2">
             {user?.roles && user.roles.length > 0 ? (
               user.roles.map(role => (
                 <span
                   key={role}
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${
                     ROLE_COLORS[role.toUpperCase()] || 'bg-gray-100 text-gray-700'
                   }`}
                 >
@@ -133,24 +136,39 @@ export const Dashboard: React.FC = () => {
                 Sin rol asignado
               </span>
             )}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              {[
+                { label: 'Buses activos', value: '24' },
+                { label: 'Rutas en servicio', value: '15' },
+                { label: 'Alertas hoy', value: '7' },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-sky-50/70">{item.label}</p>
+                  <p className="mt-2 text-2xl font-bold">{item.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`${stat.color} p-3 rounded-lg`}>
+            <div key={index} className="surface-card p-6 transition hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+              <div className="mb-4 flex items-center justify-between">
+                <div className={`${stat.color} rounded-2xl p-3 shadow-lg`}>
                   <stat.icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-green-600 text-sm font-medium flex items-center">
+                <span className="flex items-center text-sm font-medium text-emerald-600">
                   <TrendingUp className="h-4 w-4 mr-1" />
                   {stat.change}
                 </span>
               </div>
-              <h3 className="text-gray-600 text-sm font-medium">{stat.title}</h3>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+              <h3 className="text-sm font-medium text-slate-500">{stat.title}</h3>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{stat.value}</p>
             </div>
           ))}
         </div>
@@ -160,19 +178,19 @@ export const Dashboard: React.FC = () => {
           <CompanyManager />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Recent activity */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+          <div className="surface-card lg:col-span-2 p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="flex items-center text-xl font-bold text-slate-900">
                 <Activity className="h-6 w-6 mr-2 text-blue-600" />
                 Actividad Reciente
               </h2>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Ver todas</button>
+              <button className="text-sm font-medium text-sky-700 hover:text-sky-800">Ver todas</button>
             </div>
             <div className="space-y-4">
               {recentActivity.map(activity => (
-                <div key={activity.id} className="flex items-start space-x-4 p-4 rounded-lg hover:bg-gray-50 transition">
+                <div key={activity.id} className="flex items-start space-x-4 rounded-2xl p-4 transition hover:bg-slate-50">
                   <div
                     className={`w-2 h-2 rounded-full mt-2 ${
                       activity.type === 'success'
@@ -183,8 +201,8 @@ export const Dashboard: React.FC = () => {
                     }`}
                   />
                   <div className="flex-1">
-                    <p className="text-gray-900 font-medium">{activity.action}</p>
-                    <p className="text-gray-500 text-sm flex items-center mt-1">
+                    <p className="font-medium text-slate-900">{activity.action}</p>
+                    <p className="mt-1 flex items-center text-sm text-slate-500">
                       <Clock className="h-4 w-4 mr-1" />
                       {activity.time}
                     </p>
@@ -195,14 +213,14 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* My Roles & Permissions */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="surface-card p-6">
+            <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-slate-900">
               <Key className="h-5 w-5 text-purple-600" />
               Mis Roles y Permisos
             </h2>
             <div className="space-y-3">
               {userRolesData.length === 0 ? (
-                <p className="text-gray-400 text-sm">No tienes roles asignados aún.</p>
+                <p className="text-sm text-slate-400">No tienes roles asignados aún.</p>
               ) : (
                 userRolesData.map(ur => {
                   const role = ur.role;
@@ -213,29 +231,29 @@ export const Dashboard: React.FC = () => {
                     <div key={ur.id} className="border border-gray-200 rounded-lg overflow-hidden">
                       <button
                         onClick={() => setExpandedRole(isOpen ? null : role.id)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition"
+                        className="flex w-full items-center justify-between px-3 py-3 text-left transition hover:bg-slate-50"
                       >
                         <span
-                          className={`font-semibold text-sm px-2 py-0.5 rounded-full ${
+                          className={`rounded-full px-2 py-0.5 text-sm font-semibold ${
                             ROLE_COLORS[role.name?.toUpperCase()] || 'bg-gray-100 text-gray-700'
                           }`}
                         >
                           {role.name}
                         </span>
-                        <span className="text-gray-400 text-xs flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-xs text-slate-400">
                           {perms.length} permisos
                           {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                         </span>
                       </button>
                       {isOpen && (
-                        <div className="px-3 pb-2 border-t border-gray-100 bg-gray-50">
+                        <div className="border-t border-slate-100 bg-slate-50 px-3 pb-2">
                           {perms.length === 0 ? (
-                            <p className="text-gray-400 text-xs mt-2">Sin permisos</p>
+                            <p className="mt-2 text-xs text-slate-400">Sin permisos</p>
                           ) : (
                             <ul className="mt-2 space-y-1">
                               {perms.map(p => (
-                                <li key={p.id} className="text-xs text-gray-700 flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                                <li key={p.id} className="flex items-center gap-1 text-xs text-slate-700">
+                                  <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
                                   {p.name}
                                 </li>
                               ))}
@@ -250,7 +268,7 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Popular routes section */}
-            <h2 className="text-xl font-bold text-gray-900 mt-6 mb-4 flex items-center">
+            <h2 className="mt-6 mb-4 flex items-center text-xl font-bold text-slate-900">
               <MapPin className="h-6 w-6 mr-2 text-purple-600" />
               Rutas Populares
             </h2>
@@ -263,10 +281,10 @@ export const Dashboard: React.FC = () => {
               ].map((route, index) => (
                 <div key={index} className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-700">{route.name}</span>
-                    <span className="text-gray-600">{route.trips} viajes</span>
+                    <span className="font-medium text-slate-700">{route.name}</span>
+                    <span className="text-slate-600">{route.trips} viajes</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="h-2 w-full rounded-full bg-slate-200">
                     <div
                       className={`${route.color} h-2 rounded-full`}
                       style={{ width: `${(route.trips / 45) * 100}%` }}
@@ -275,20 +293,20 @@ export const Dashboard: React.FC = () => {
                 </div>
               ))}
             </div>
-            <button className="mt-6 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 rounded-lg hover:shadow-lg transition">
+            <button className="mt-6 w-full rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-600 py-3 font-semibold text-white transition hover:shadow-lg">
               Ver Mapa Completo
             </button>
           </div>
         </div>
 
         {/* Security banner */}
-        <div className="mt-6 bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl shadow-md p-6 text-white">
+        <div className="hero-panel mt-6 p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold mb-2">Sistema de Seguridad Activo</h3>
               <p className="text-blue-100">Todos los buses están monitoreados en tiempo real</p>
             </div>
-            <Shield className="h-16 w-16 text-blue-200" />
+            <Shield className="h-16 w-16 text-cyan-100" />
           </div>
         </div>
       </div>

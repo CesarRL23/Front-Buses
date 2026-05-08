@@ -102,22 +102,23 @@ export const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="surface-card w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-green-600 p-3 rounded-full">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-600 text-white shadow-lg shadow-emerald-500/20">
               <Bus className="h-10 w-10 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">Crear Cuenta</h2>
-          <p className="text-gray-600 mt-2">
+          <p className="soft-label">Nueva cuenta</p>
+          <h2 className="mt-2 font-['Space_Grotesk'] text-3xl font-bold text-slate-900">Crear cuenta</h2>
+          <p className="mt-2 text-slate-600">
             Únete a la red de Buses Inteligentes
           </p>
         </div>
 
         {apiError && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
             {apiError}
           </div>
         )}
@@ -199,7 +200,7 @@ export const Register: React.FC = () => {
                 type="checkbox"
                 checked={acceptTerms}
                 onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500 mt-1"
+                className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
               />
               <span className="ml-2 text-sm text-gray-600">
                 Acepto los{' '}
@@ -220,17 +221,17 @@ export const Register: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-600 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-gray-600">
+        <p className="mt-8 text-center text-sm text-slate-600">
           ¿Ya tienes una cuenta?{' '}
           <Link
             to="/login"
-            className="text-green-600 hover:text-green-700 font-medium"
+            className="font-medium text-emerald-700 hover:text-emerald-800"
           >
             Inicia sesión aquí
           </Link>

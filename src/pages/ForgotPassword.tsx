@@ -73,23 +73,23 @@ export const ForgotPassword: React.FC = () => {
 
   if (step === 3) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="surface-card w-full max-w-md p-8">
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="bg-green-100 p-3 rounded-full">
+              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
                 <CheckCircle className="h-16 w-16 text-green-600" />
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-2xl font-bold text-slate-900">
               ¡Contraseña Restablecida!
             </h2>
-            <p className="text-gray-600 mb-8">
+            <p className="mb-8 text-slate-600">
               Tu contraseña ha sido actualizada con éxito. Ya puedes iniciar sesión con tu nueva contraseña.
             </p>
             <Link
               to="/login"
-              className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+              className="inline-flex items-center space-x-2 font-medium text-sky-700 hover:text-sky-800"
             >
               <ArrowLeft className="h-5 w-5" />
               <span>Ir al inicio de sesión</span>
@@ -101,18 +101,19 @@ export const ForgotPassword: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="surface-card w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-purple-600 p-3 rounded-full">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-cyan-600 text-white shadow-lg shadow-sky-600/20">
               <Bus className="h-10 w-10 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">
+          <p className="soft-label">Recuperación de acceso</p>
+          <h2 className="mt-2 font-['Space_Grotesk'] text-3xl font-bold text-slate-900">
             {step === 1 ? 'Recuperar Contraseña' : 'Nueva Contraseña'}
           </h2>
-          <p className="text-gray-600 mt-2">
+          <p className="mt-2 text-slate-600">
             {step === 1
               ? 'Ingresa tu email y te enviaremos un código'
               : 'Ingresa el código que recibiste y tu nueva contraseña'}
@@ -120,7 +121,7 @@ export const ForgotPassword: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
             {error}
           </div>
         )}
@@ -143,7 +144,7 @@ export const ForgotPassword: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-600 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? 'Enviando...' : 'Enviar Código'}
             </button>
@@ -192,7 +193,7 @@ export const ForgotPassword: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg mt-4 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-4 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-600 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? 'Cargando...' : 'Restablecer Contraseña'}
             </button>
@@ -202,7 +203,7 @@ export const ForgotPassword: React.FC = () => {
         <div className="mt-6">
           <Link
             to="/login"
-            className="flex items-center justify-center space-x-2 text-gray-600 hover:text-gray-700"
+            className="flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-700"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Volver al inicio de sesión</span>

@@ -129,20 +129,21 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="surface-card w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-cyan-600 text-white shadow-lg shadow-sky-600/20">
               <Bus className="h-10 w-10 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">Iniciar Sesión</h2>
-          <p className="text-gray-600 mt-2">Accede a tu cuenta de Buses Inteligentes</p>
+          <p className="soft-label">Acceso a la red</p>
+          <h2 className="mt-2 font-['Space_Grotesk'] text-3xl font-bold text-slate-900">Iniciar sesión</h2>
+          <p className="mt-2 text-slate-600">Accede a tu cuenta de Buses Inteligentes</p>
         </div>
 
         {apiError && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
             {apiError}
           </div>
         )}
@@ -182,13 +183,13 @@ export const Login: React.FC = () => {
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-slate-300 text-sky-600 focus:ring-sky-500"
               />
-              <span className="ml-2 text-gray-600">Recordarme</span>
+              <span className="ml-2 text-slate-600">Recordarme</span>
             </label>
             <Link
               to="/forgot-password"
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              className="font-medium text-sky-700 hover:text-sky-800"
             >
               ¿Olvidaste tu contraseña?
             </Link>
@@ -197,7 +198,7 @@ export const Login: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-600 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
@@ -206,10 +207,10 @@ export const Login: React.FC = () => {
         <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-slate-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">O continuar con</span>
+              <span className="bg-white px-2 text-slate-500">O continuar con</span>
             </div>
           </div>
 
@@ -217,7 +218,7 @@ export const Login: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSocialLogin('google')}
-              className="flex justify-center items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 transition hover:bg-slate-50"
             >
               {/* Google icon */}
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -231,7 +232,7 @@ export const Login: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSocialLogin('microsoft')}
-              className="flex justify-center items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 transition hover:bg-slate-50"
             >
               {/* Microsoft icon */}
               <svg className="h-5 w-5" viewBox="0 0 23 23">
@@ -246,7 +247,7 @@ export const Login: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSocialLogin('github')}
-              className="flex justify-center items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 transition hover:bg-slate-50"
             >
               {/* GitHub icon */}
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -260,7 +261,7 @@ export const Login: React.FC = () => {
           ¿No tienes una cuenta?{' '}
           <Link
             to="/register"
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="font-medium text-sky-700 hover:text-sky-800"
           >
             Regístrate aquí
           </Link>

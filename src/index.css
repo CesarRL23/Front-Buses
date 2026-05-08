@@ -1,3 +1,69 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --bg: 245 247 250;
+    --surface: 255 255 255;
+    --surface-soft: 247 250 252;
+    --border: 226 232 240;
+    --text: 15 23 42;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: "Inter", sans-serif;
+    color: rgb(var(--text));
+    background:
+      radial-gradient(
+        circle at top left,
+        rgba(14, 165, 233, 0.14),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at top right,
+        rgba(16, 185, 129, 0.12),
+        transparent 24%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(248 251 255) 0%,
+        rgb(241 246 251) 52%,
+        rgb(233 240 247) 100%
+      );
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(14, 165, 233, 0.2);
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-3xl border border-slate-200/80 bg-white/90 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl;
+  }
+
+  .hero-panel {
+    @apply rounded-[2rem] border border-white/30 bg-[linear-gradient(135deg,rgba(8,47,73,0.96),rgba(14,116,144,0.92),rgba(20,184,166,0.82))] text-white shadow-[0_28px_70px_rgba(8,47,73,0.22)] backdrop-blur-xl;
+  }
+
+  .pill-badge {
+    @apply inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-white/90;
+  }
+
+  .soft-label {
+    @apply text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500;
+  }
+}

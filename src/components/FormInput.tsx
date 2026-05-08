@@ -15,31 +15,31 @@ export const FormInput: React.FC<FormInputProps> = ({
 }) => {
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="soft-label mb-2 block">
         {label}
       </label>
       <div className="relative">
         {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
             {icon}
           </div>
         )}
         <input
           className={`
-            w-full px-4 py-3 rounded-lg border
-            ${icon ? 'pl-10' : ''}
+            w-full rounded-2xl border bg-slate-50/90 px-4 py-3.5 text-sm text-slate-900 outline-none transition
+            placeholder:text-slate-400 focus:bg-white focus:ring-4
+            ${icon ? 'pl-11' : ''}
             ${
               error
-                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
+                : 'border-slate-200 focus:border-sky-400 focus:ring-sky-100'
             }
-            focus:ring-2 focus:outline-none transition
             ${className}
           `}
           {...props}
         />
       </div>
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-sm font-medium text-rose-600">{error}</p>}
     </div>
   );
 };

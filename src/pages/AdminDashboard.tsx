@@ -21,7 +21,10 @@ import {
   Lock,
   Unlock,
   Briefcase,
+  BarChart3,
+  Activity,
 } from 'lucide-react';
+import { StatsCard, ActivityFeed, MetricBadge, QuickActionButton } from '../components/DashboardComponents';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Role { id: string; name: string; description?: string; }
@@ -427,43 +430,85 @@ export const AdminDashboard: React.FC = () => {
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Shield className="h-8 w-8 text-red-600" />
+            <h1 className="text-4xl font-black text-gray-900 flex items-center gap-3 mb-2">
+              <div className="bg-gradient-to-br from-red-500 to-red-600 p-3 rounded-2xl shadow-lg">
+                <Shield className="h-8 w-8 text-white" />
+              </div>
               Panel de Administración
             </h1>
-            <p className="text-gray-500 mt-1 text-sm">Gestión completa de usuarios, permisos y roles</p>
+            <p className="text-gray-600 text-lg">Gestión centralizada de usuarios, roles y permisos</p>
           </div>
           <button
             onClick={loadData}
             disabled={loading}
-            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50"
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-6 py-3 rounded-xl hover:shadow-lg transition disabled:opacity-50 shadow-md w-fit"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Actualizando...' : 'Actualizar'}
           </button>
         </div>
 
+        {/* Stats Overview */}
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard
+              title="Usuarios Totales"
+              value={users.length}
+              icon={Users}
+              bgColor="bg-blue-50"
+              textColor="text-blue-600"
+              iconBgColor="bg-blue-100"
+              trend="up"
+              trendValue="+12% este mes"
+            />
+            <StatsCard
+              title="Roles Activos"
+              value={roles.length}
+              icon={Briefcase}
+              bgColor="bg-purple-50"
+              textColor="text-purple-600"
+              iconBgColor="bg-purple-100"
+            />
+            <StatsCard
+              title="Permisos del Sistema"
+              value={permissions.length}
+              icon={Key}
+              bgColor="bg-green-50"
+              textColor="text-green-600"
+              iconBgColor="bg-green-100"
+            />
+            <StatsCard
+              title="Asignaciones Activas"
+              value={allUserRoles.length}
+              icon={Activity}
+              bgColor="bg-amber-50"
+              textColor="text-amber-600"
+              iconBgColor="bg-amber-100"
+            />
+          </div>
+        )}
+
         <Feedback error={error} success={success} />
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 shadow-sm w-fit">
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2 flex flex-wrap gap-2 w-fit">
           {([
             perms.canListUsers ? { key: 'users', label: 'Usuarios', icon: Users } : null,
             perms.canManageRoles ? { key: 'roles', label: 'Roles', icon: Briefcase } : null,
             perms.canManagePerms ? { key: 'permissions', label: 'Permisos', icon: Key } : null,
-            perms.canManagePerms ? { key: 'rolePerms', label: 'Roles → Permisos', icon: Lock } : null,
+            perms.canManagePerms ? { key: 'rolePerms', label: 'Asignaciones', icon: Lock } : null,
           ].filter(Boolean) as any[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
                 activeTab === key
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -473,8 +518,12 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-48">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" />
+          <div className="flex flex-col items-center justify-center h-64">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full animate-spin" style={{ clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }}></div>
+              <div className="absolute inset-2 bg-white rounded-full"></div>
+            </div>
+            <p className="mt-6 text-gray-500 font-semibold">Cargando datos...</p>
           </div>
         ) : (
           <>
@@ -483,19 +532,24 @@ export const AdminDashboard: React.FC = () => {
             ══════════════════════════════════════════ */}
             {activeTab === 'users' && (
               <div className="space-y-6">
-                {/* Assign role form */}
+                {/* Assign role section */}
                 {perms.canAssignRoles && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <UserCheck className="h-5 w-5 text-blue-600" />
-                      Asignar Rol a Usuario
-                    </h2>
-                    <form onSubmit={handleAssignRole} className="flex flex-col sm:flex-row gap-3">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 shadow-sm p-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-blue-600 p-2 rounded-lg">
+                        <UserCheck className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">Asignar Rol a Usuario</h2>
+                        <p className="text-sm text-gray-600">Vincula roles de seguridad a usuarios</p>
+                      </div>
+                    </div>
+                    <form onSubmit={handleAssignRole} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                       <select
                         id="select-user"
                         value={selectedUserId}
                         onChange={e => setSelectedUserId(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="sm:col-span-4 border border-blue-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                         required
                       >
                         <option value="">— Seleccionar usuario —</option>
@@ -507,7 +561,7 @@ export const AdminDashboard: React.FC = () => {
                         id="select-role"
                         value={selectedRoleId}
                         onChange={e => setSelectedRoleId(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="sm:col-span-4 border border-blue-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                         required
                       >
                         <option value="">— Seleccionar rol —</option>
@@ -518,8 +572,9 @@ export const AdminDashboard: React.FC = () => {
                       <button
                         type="submit"
                         disabled={assigning}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50 whitespace-nowrap"
+                        className="sm:col-span-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold px-6 py-3 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
                       >
+                        <Plus className="h-5 w-5" />
                         {assigning ? 'Asignando...' : 'Asignar Rol'}
                       </button>
                     </form>
@@ -566,58 +621,62 @@ export const AdminDashboard: React.FC = () => {
                 )}
 
                 {/* Users table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Users className="h-5 w-5 text-green-600" />
-                    Usuarios Registrados
-                    <span className="ml-auto text-xs font-normal text-gray-400">{users.length} total</span>
-                  </h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-8 border-b border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="bg-green-100 p-2 rounded-lg">
+                        <Users className="h-6 w-6 text-green-600" />
+                      </div>
+                      Usuarios Registrados
+                      <span className="ml-auto text-sm font-normal bg-green-100 text-green-700 px-4 py-1 rounded-full">{users.length} total</span>
+                    </h2>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-200 text-left text-gray-400 text-xs uppercase tracking-wider">
-                          <th className="pb-3 pr-4">Nombre</th>
-                          <th className="pb-3 pr-4">Email</th>
-                          <th className="pb-3 pr-4">Roles</th>
-                          <th className="pb-3 text-right">Acciones</th>
+                        <tr className="border-b border-gray-100 bg-gray-50">
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Nombre</th>
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Email</th>
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Roles</th>
+                          <th className="px-6 py-4 text-right text-gray-600 font-bold text-xs uppercase tracking-wider">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-100">
                         {users.map(u => {
                           const userRoles = getUserRoles(u.id);
                           const isExpanded = expandedUser === u.id;
                           return (
                             <React.Fragment key={u.id}>
-                              <tr className="border-b border-gray-50 hover:bg-gray-50 transition">
-                                <td className="py-3 pr-4 font-medium text-gray-900">{u.name}</td>
-                                <td className="py-3 pr-4 text-gray-500">{u.email}</td>
-                                <td className="py-3 pr-4">
+                              <tr className="hover:bg-gray-50 transition">
+                                <td className="px-6 py-4 font-semibold text-gray-900">{u.name}</td>
+                                <td className="px-6 py-4 text-gray-500">{u.email}</td>
+                                <td className="px-6 py-4">
                                   <button
                                     onClick={() => setExpandedUser(isExpanded ? null : u.id)}
-                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm"
                                   >
-                                    {userRoles.length} rol{userRoles.length !== 1 ? 'es' : ''}
-                                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                    <MetricBadge label="Roles" value={userRoles.length} color="blue" size="sm" />
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                   </button>
                                 </td>
-                                <td className="py-3 text-right">
-                                  <div className="flex items-center justify-end gap-2">
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-3">
                                     {perms.canEditUsers && (
                                       <button
                                         onClick={() => startEditUser(u)}
                                         title="Editar usuario"
-                                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
                                       >
-                                        <Pencil className="h-4 w-4" />
+                                        <Pencil className="h-5 w-5" />
                                       </button>
                                     )}
                                     {perms.canDeleteUsers && (
                                       <button
                                         onClick={() => handleDeleteUser(u)}
                                         title="Eliminar usuario"
-                                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
+                                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-5 w-5" />
                                       </button>
                                     )}
                                   </div>
@@ -625,17 +684,18 @@ export const AdminDashboard: React.FC = () => {
                               </tr>
                               {isExpanded && (
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                  <td colSpan={4} className="px-4 py-3">
+                                  <td colSpan={4} className="px-6 py-4">
                                     {userRoles.length === 0 ? (
-                                      <p className="text-gray-400 text-xs flex items-center gap-1">
-                                        <AlertTriangle className="h-3 w-3" /> Sin roles asignados
-                                      </p>
+                                      <div className="flex items-center gap-2 text-gray-500">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <span className="font-medium">Sin roles asignados</span>
+                                      </div>
                                     ) : (
-                                      <div className="flex flex-wrap gap-2">
+                                      <div className="flex flex-wrap gap-3">
                                         {userRoles.map(ur => (
-                                          <span
+                                          <div
                                             key={ur.id}
-                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border ${
                                               ROLE_COLORS[ur.role?.name?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200'
                                             }`}
                                           >
@@ -644,12 +704,12 @@ export const AdminDashboard: React.FC = () => {
                                               <button
                                                 onClick={() => handleRemoveUserRole(ur)}
                                                 title="Quitar rol"
-                                                className="hover:opacity-70 transition"
+                                                className="hover:opacity-70 transition ml-2"
                                               >
                                                 <X className="h-3 w-3" />
                                               </button>
                                             )}
-                                          </span>
+                                          </div>
                                         ))}
                                       </div>
                                     )}
@@ -661,8 +721,8 @@ export const AdminDashboard: React.FC = () => {
                         })}
                         {users.length === 0 && (
                           <tr>
-                            <td colSpan={4} className="py-8 text-center text-gray-400 text-sm">
-                              No hay usuarios registrados.
+                            <td colSpan={4} className="px-6 py-12 text-center text-gray-400 font-medium">
+                              No hay usuarios registrados
                             </td>
                           </tr>
                         )}
@@ -679,43 +739,48 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'roles' && (
               <div className="space-y-6">
                 {/* Create / Edit role form */}
-                <div className={`rounded-xl border p-6 ${editingRole ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200 shadow-sm'}`}>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    {editingRole ? <Pencil className="h-5 w-5 text-amber-600" /> : <Plus className="h-5 w-5 text-blue-600" />}
-                    {editingRole ? 'Editando Rol' : 'Nuevo Rol'}
-                  </h2>
-                  <form onSubmit={handleSaveRole} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={`rounded-2xl border p-8 ${editingRole ? 'bg-amber-50 border-amber-100' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'} shadow-sm`}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className={`p-2 rounded-lg ${editingRole ? 'bg-amber-600' : 'bg-blue-600'}`}>
+                      {editingRole ? <Pencil className="h-6 w-6 text-white" /> : <Plus className="h-6 w-6 text-white" />}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{editingRole ? 'Editar Rol' : 'Crear Nuevo Rol'}</h2>
+                      <p className="text-sm text-gray-600">Define las características del rol de usuario</p>
+                    </div>
+                  </div>
+                  <form onSubmit={handleSaveRole} className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                     <input
                       type="text"
-                      placeholder="Nombre (ej: ADMIN)"
+                      placeholder="Nombre del rol (ej: ADMIN)"
                       value={roleForm.name}
                       onChange={e => setRoleForm(f => ({ ...f, name: e.target.value.toUpperCase() }))}
                       required
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-3 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                     />
                     <input
                       type="text"
-                      placeholder="Descripción"
+                      placeholder="Descripción del rol"
                       value={roleForm.description}
                       onChange={e => setRoleForm(f => ({ ...f, description: e.target.value }))}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-6 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                     />
-                    <div className="flex gap-2">
-                       <button
+                    <div className="sm:col-span-3 flex gap-2">
+                      <button
                         type="submit"
                         disabled={savingRole}
-                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white text-sm font-bold px-4 py-3 rounded-xl transition disabled:opacity-50 shadow-md"
                       >
-                        <Save className="h-4 w-4" />
+                        <Save className="h-5 w-5" />
                         {savingRole ? 'Guardando...' : editingRole ? 'Actualizar' : 'Crear'}
                       </button>
                       {editingRole && (
                         <button
                           type="button"
                           onClick={() => { setEditingRole(null); setRoleForm({ name: '', description: '' }); }}
-                          className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 transition"
+                          className="p-3 rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-100 transition"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-5 w-5" />
                         </button>
                       )}
                     </div>
@@ -723,50 +788,59 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* Roles list */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-purple-600" />
-                    Roles del Sistema
-                    <span className="ml-auto text-xs font-normal text-gray-400">{roles.length} total</span>
-                  </h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-8 border-b border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="bg-purple-100 p-2 rounded-lg">
+                        <Briefcase className="h-6 w-6 text-purple-600" />
+                      </div>
+                      Roles del Sistema
+                      <span className="ml-auto text-sm font-normal bg-purple-100 text-purple-700 px-4 py-1 rounded-full">{roles.length} roles</span>
+                    </h2>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-200 text-left text-gray-400 text-xs uppercase tracking-wider">
-                          <th className="pb-3 pr-4">Nombre</th>
-                          <th className="pb-3 pr-4">Descripción</th>
-                          <th className="pb-3 text-right">Acciones</th>
+                        <tr className="border-b border-gray-100 bg-gray-50">
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Nombre</th>
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Descripción</th>
+                          <th className="px-6 py-4 text-right text-gray-600 font-bold text-xs uppercase tracking-wider">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-100">
                         {roles.map(r => (
-                          <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                            <td className="py-3 pr-4">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${ROLE_COLORS[r.name?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                                {r.name}
-                              </span>
+                          <tr key={r.id} className="hover:bg-gray-50 transition">
+                            <td className="px-6 py-4">
+                              <MetricBadge label={r.name} value="" color={r.name?.toUpperCase() === 'ADMIN' ? 'red' : 'purple'} size="md" />
                             </td>
-                            <td className="py-3 pr-4 text-gray-600">{r.description || 'Sin descripción'}</td>
-                            <td className="py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-6 py-4 text-gray-600 font-medium">{r.description || 'Sin descripción'}</td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-3">
                                 <button
                                   onClick={() => startEditRole(r)}
                                   title="Editar rol"
-                                  className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition"
+                                  className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition"
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <Pencil className="h-5 w-5" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteRole(r)}
                                   title="Eliminar rol"
-                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
+                                  className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-5 w-5" />
                                 </button>
                               </div>
                             </td>
                           </tr>
                         ))}
+                        {roles.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="px-6 py-12 text-center text-gray-400 font-medium">
+                              No hay roles registrados
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -780,24 +854,29 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'permissions' && (
               <div className="space-y-6">
                 {/* Create / Edit permission form */}
-                <div className={`rounded-xl border p-6 ${editingPerm ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200 shadow-sm'}`}>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    {editingPerm ? <Pencil className="h-5 w-5 text-amber-600" /> : <Plus className="h-5 w-5 text-blue-600" />}
-                    {editingPerm ? 'Editando Permiso' : 'Nuevo Permiso'}
-                  </h2>
-                  <form onSubmit={handleSavePerm} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className={`rounded-2xl border p-8 ${editingPerm ? 'bg-amber-50 border-amber-100' : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'} shadow-sm`}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className={`p-2 rounded-lg ${editingPerm ? 'bg-amber-600' : 'bg-green-600'}`}>
+                      {editingPerm ? <Pencil className="h-6 w-6 text-white" /> : <Plus className="h-6 w-6 text-white" />}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{editingPerm ? 'Editar Permiso' : 'Crear Nuevo Permiso'}</h2>
+                      <p className="text-sm text-gray-600">Define los permisos del sistema para APIs</p>
+                    </div>
+                  </div>
+                  <form onSubmit={handleSavePerm} className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                     <input
                       type="text"
-                      placeholder="URL  (ej: /users)"
+                      placeholder="URL (ej: /api/users)"
                       value={permForm.url}
                       onChange={e => setPermForm(f => ({ ...f, url: e.target.value }))}
                       required
-                      className="sm:col-span-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-3 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition"
                     />
                     <select
                       value={permForm.method}
                       onChange={e => setPermForm(f => ({ ...f, method: e.target.value }))}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-2 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition"
                     >
                       {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(m => (
                         <option key={m} value={m}>{m}</option>
@@ -805,28 +884,28 @@ export const AdminDashboard: React.FC = () => {
                     </select>
                     <input
                       type="text"
-                      placeholder="Descripción"
+                      placeholder="Descripción del permiso"
                       value={permForm.description}
                       onChange={e => setPermForm(f => ({ ...f, description: e.target.value }))}
                       required
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-4 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition"
                     />
-                    <div className="flex gap-2">
+                    <div className="sm:col-span-3 flex gap-2">
                       <button
                         type="submit"
                         disabled={savingPerm}
-                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:shadow-lg text-white text-sm font-bold px-4 py-3 rounded-xl transition disabled:opacity-50 shadow-md"
                       >
-                        <Save className="h-4 w-4" />
+                        <Save className="h-5 w-5" />
                         {savingPerm ? 'Guardando...' : editingPerm ? 'Actualizar' : 'Crear'}
                       </button>
                       {editingPerm && (
                         <button
                           type="button"
                           onClick={() => { setEditingPerm(null); setPermForm({ url: '', method: 'GET', description: '' }); }}
-                          className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 transition"
+                          className="p-3 rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-100 transition"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-5 w-5" />
                         </button>
                       )}
                     </div>
@@ -834,49 +913,49 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* Permissions list */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Key className="h-5 w-5 text-purple-600" />
-                    Permisos del Sistema
-                    <span className="ml-auto text-xs font-normal text-gray-400">{permissions.length} total</span>
-                  </h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-8 border-b border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="bg-green-100 p-2 rounded-lg">
+                        <Key className="h-6 w-6 text-green-600" />
+                      </div>
+                      Permisos del Sistema
+                      <span className="ml-auto text-sm font-normal bg-green-100 text-green-700 px-4 py-1 rounded-full">{permissions.length} permisos</span>
+                    </h2>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-200 text-left text-gray-400 text-xs uppercase tracking-wider">
-                          <th className="pb-3 pr-4">Método</th>
-                          <th className="pb-3 pr-4">URL</th>
-                          <th className="pb-3 pr-4">Descripción</th>
-                          <th className="pb-3 text-right">Acciones</th>
+                        <tr className="border-b border-gray-100 bg-gray-50">
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Método</th>
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">URL</th>
+                          <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Descripción</th>
+                          <th className="px-6 py-4 text-right text-gray-600 font-bold text-xs uppercase tracking-wider">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-100">
                         {permissions.map(p => (
-                          <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                            <td className="py-3 pr-4">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border ${
-                                METHOD_COLORS[p.method?.toUpperCase()] || 'bg-gray-100 text-gray-600 border-gray-200'
-                              }`}>
-                                {p.method}
-                              </span>
+                          <tr key={p.id} className="hover:bg-gray-50 transition">
+                            <td className="px-6 py-4">
+                              <MetricBadge label={p.method} value="" color={p.method === 'GET' ? 'green' : p.method === 'POST' ? 'blue' : p.method === 'DELETE' ? 'red' : 'amber'} size="sm" />
                             </td>
-                            <td className="py-3 pr-4 font-mono text-xs text-gray-700">{p.url}</td>
-                            <td className="py-3 pr-4 text-gray-600">{p.description}</td>
-                            <td className="py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-6 py-4 font-mono text-gray-700 font-semibold">{p.url}</td>
+                            <td className="px-6 py-4 text-gray-600">{p.description}</td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-3">
                                 <button
                                   onClick={() => startEditPerm(p)}
                                   title="Editar permiso"
-                                  className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition"
+                                  className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition"
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <Pencil className="h-5 w-5" />
                                 </button>
                                 <button
                                   onClick={() => handleDeletePerm(p)}
                                   title="Eliminar permiso"
-                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
+                                  className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-5 w-5" />
                                 </button>
                               </div>
                             </td>
@@ -884,8 +963,8 @@ export const AdminDashboard: React.FC = () => {
                         ))}
                         {permissions.length === 0 && (
                           <tr>
-                            <td colSpan={4} className="py-8 text-center text-gray-400 text-sm">
-                              No hay permisos registrados.
+                            <td colSpan={4} className="px-6 py-12 text-center text-gray-400 font-medium">
+                              No hay permisos registrados
                             </td>
                           </tr>
                         )}
@@ -902,16 +981,21 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'rolePerms' && (
               <div className="space-y-6">
                 {/* Assign permission to role */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Unlock className="h-5 w-5 text-green-600" />
-                    Asignar Permiso a Rol
-                  </h2>
-                  <form onSubmit={handleAssignPermToRole} className="flex flex-col sm:flex-row gap-3">
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100 shadow-sm p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-purple-600 p-2 rounded-lg">
+                      <Unlock className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Asignar Permiso a Rol</h2>
+                      <p className="text-sm text-gray-600">Vincula permisos de API a roles de usuario</p>
+                    </div>
+                  </div>
+                  <form onSubmit={handleAssignPermToRole} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                     <select
                       value={selectedRoleForPerm}
                       onChange={e => setSelectedRoleForPerm(e.target.value)}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-4 border border-purple-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
                       required
                     >
                       <option value="">— Seleccionar rol —</option>
@@ -922,7 +1006,7 @@ export const AdminDashboard: React.FC = () => {
                     <select
                       value={selectedPermForRole}
                       onChange={e => setSelectedPermForRole(e.target.value)}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="sm:col-span-5 border border-purple-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
                       required
                     >
                       <option value="">— Seleccionar permiso —</option>
@@ -935,65 +1019,66 @@ export const AdminDashboard: React.FC = () => {
                     <button
                       type="submit"
                       disabled={assigningPerm}
-                      className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50 whitespace-nowrap"
+                      className="sm:col-span-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg text-white text-sm font-bold px-6 py-3 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
                     >
+                      <Plus className="h-5 w-5" />
                       {assigningPerm ? 'Asignando...' : 'Asignar'}
                     </button>
                   </form>
                 </div>
 
                 {/* Roles with their permissions */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-red-600" />
-                    Permisos por Rol
-                  </h2>
-                  <div className="space-y-3">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-8 border-b border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="bg-red-100 p-2 rounded-lg">
+                        <Shield className="h-6 w-6 text-red-600" />
+                      </div>
+                      Permisos por Rol
+                      <span className="ml-auto text-sm font-normal bg-red-100 text-red-700 px-4 py-1 rounded-full">{roles.length} roles</span>
+                    </h2>
+                  </div>
+                  <div className="p-6 space-y-4">
                     {roles.map(role => {
                       const perms = getRolePerms(role.id);
                       const isOpen = expandedRole === role.id;
                       return (
-                        <div key={role.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div key={role.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition">
                           <button
                             onClick={() => setExpandedRole(isOpen ? null : role.id)}
-                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition text-left"
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition text-left"
                           >
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
-                              ROLE_COLORS[role.name?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200'
-                            }`}>
-                              {role.name}
-                            </span>
-                            <span className="flex items-center gap-1 text-gray-400 text-xs">
+                            <div className="flex items-center gap-3">
+                              <MetricBadge label={role.name} value="" color={role.name?.toUpperCase() === 'ADMIN' ? 'red' : 'purple'} size="md" />
+                              <span className="text-sm text-gray-600">{role.description}</span>
+                            </div>
+                            <span className="flex items-center gap-2 text-gray-400 text-sm font-semibold">
                               {perms.length} permiso{perms.length !== 1 ? 's' : ''}
-                              {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                             </span>
                           </button>
 
                           {isOpen && (
-                            <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                            <div className="border-t border-gray-100 bg-gray-50 px-6 py-4">
                               {perms.length === 0 ? (
-                                <p className="text-gray-400 text-xs">Sin permisos asignados</p>
+                                <p className="text-gray-400 text-sm font-medium">Sin permisos asignados</p>
                               ) : (
                                 <div className="flex flex-col gap-2">
                                   {perms.map(rp => (
-                                    <div key={rp.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold border ${
-                                          METHOD_COLORS[rp.permission?.method?.toUpperCase()] || 'bg-gray-100 text-gray-600 border-gray-200'
-                                        }`}>
-                                          {rp.permission?.method}
-                                        </span>
-                                        <span className="font-mono text-xs text-gray-600">{rp.permission?.url}</span>
+                                    <div key={rp.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-3">
+                                      <div className="flex items-center gap-3">
+                                        <MetricBadge label={rp.permission?.method} value="" color={rp.permission?.method === 'GET' ? 'green' : rp.permission?.method === 'POST' ? 'blue' : 'red'} size="sm" />
+                                        <span className="font-mono text-sm text-gray-700 font-semibold">{rp.permission?.url}</span>
                                         {rp.permission?.description && (
-                                          <span className="text-xs text-gray-400">— {rp.permission.description}</span>
+                                          <span className="text-sm text-gray-500">— {rp.permission.description}</span>
                                         )}
                                       </div>
                                       <button
                                         onClick={() => handleRemoveRolePerm(rp)}
                                         title="Quitar permiso"
-                                        className="p-1 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition"
+                                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
                                       >
-                                        <X className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
                                   ))}
@@ -1004,9 +1089,6 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       );
                     })}
-                    {roles.length === 0 && (
-                      <p className="text-center text-gray-400 text-sm py-8">No hay roles registrados.</p>
-                    )}
                   </div>
                 </div>
               </div>

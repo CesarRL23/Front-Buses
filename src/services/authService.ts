@@ -1,24 +1,31 @@
-import axios from 'axios';
+import axios from "axios";
 import {
   LoginCredentials,
   RegisterCredentials,
   AuthResponse,
   User,
   Permission,
-} from '../types/auth.types';
-import { decodeJwt, isTokenExpired } from '../utils/fakeJwt';
-import { auth, googleProvider, microsoftProvider, githubProvider } from '../firebase/config';
-import { signInWithPopup } from 'firebase/auth';
+} from "../types/auth.types";
+import { decodeJwt, isTokenExpired } from "../utils/fakeJwt";
+import {
+  auth,
+  googleProvider,
+  microsoftProvider,
+  githubProvider,
+} from "../firebase/config";
+import { signInWithPopup } from "firebase/auth";
+import { businessService } from "./businessService";
 
 // The backend serves public security endpoints at /api/public/security
 // but all other controllers (users, roles, user-role, etc.) at the root without /api prefix.
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
-const ROOT_BASE = API_BASE.replace(/\/api$/, ''); // http://localhost:8081
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";
+const ROOT_BASE = API_BASE.replace(/\/api$/, ""); // http://localhost:8081
 
 const api = axios.create({
   baseURL: API_BASE,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   timeout: 12000,
 });
@@ -27,57 +34,77 @@ const api = axios.create({
 const rootApi = axios.create({
   baseURL: ROOT_BASE,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   timeout: 12000,
 });
 
 const attachToken = (config: any) => {
-  const token = localStorage.getItem('auth_token') || localStorage.getItem('temp_token');
+  const token =
+    localStorage.getItem("auth_token") || localStorage.getItem("temp_token");
   if (token && !isTokenExpired(token)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 };
 
-api.interceptors.request.use(attachToken, error => Promise.reject(error));
-rootApi.interceptors.request.use(attachToken, error => Promise.reject(error));
+api.interceptors.request.use(attachToken, (error) => Promise.reject(error));
+rootApi.interceptors.request.use(attachToken, (error) => Promise.reject(error));
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/login';
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
-const toFrontendUser = (data: any, roles: string[] = [], permissions: Permission[] = []): User => {
-  const name = data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim();
-  const names = name.split(' ').filter(Boolean);
+const toFrontendUser = (
+  data: any,
+  roles: string[] = [],
+  permissions: Permission[] = [],
+): User => {
+  const name =
+    data.name || `${data.firstName || ""} ${data.lastName || ""}`.trim();
+  const names = name.split(" ").filter(Boolean);
 
   return {
     id: data.id,
     email: data.email,
-    firstName: data.firstName || names[0] || '',
-    lastName: data.lastName || names.slice(1).join(' ') || '',
-    roles: roles.length > 0 ? roles : (data.roles || []),
+    firstName: data.firstName || names[0] || "",
+    lastName: data.lastName || names.slice(1).join(" ") || "",
+    roles: roles.length > 0 ? roles : data.roles || [],
     profileImage: data.profileImage,
     phoneNumber: data.phoneNumber,
     twoFactorEnabled: data.twoFactorEnabled ?? false,
     name,
-    permissions: permissions.length > 0 ? permissions : (data.permissions || []),
+    permissions: permissions.length > 0 ? permissions : data.permissions || [],
   };
+};
+
+const syncPersonWithBusiness = async (
+  user: User,
+  token: string,
+): Promise<void> => {
+  try {
+    await businessService.ensurePersonForUser(user, token);
+  } catch (error) {
+    console.warn("No se pudo sincronizar Person en ms-negocio-buses:", error);
+  }
 };
 
 /**
  * Fetches the roles assigned to a user by calling GET /user-role/user/{userId}.
  * Returns an array of role name strings (e.g. ['ADMIN', 'CIUDADANO']).
  */
-export const fetchUserRoles = async (userId: string, token: string): Promise<string[]> => {
+export const fetchUserRoles = async (
+  userId: string,
+  token: string,
+): Promise<string[]> => {
   try {
     const response = await axios.get(`${ROOT_BASE}/user-role`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -86,7 +113,7 @@ export const fetchUserRoles = async (userId: string, token: string): Promise<str
     const allRoles: any[] = Array.isArray(response.data) ? response.data : [];
     const userRoles = allRoles.filter((ur: any) => ur.user?.id === userId);
     return userRoles
-      .map((ur: any) => ur.role?.name || ur.role?.nombre || '')
+      .map((ur: any) => ur.role?.name || ur.role?.nombre || "")
       .filter(Boolean)
       .map((r: string) => r.toUpperCase());
   } catch {
@@ -97,22 +124,29 @@ export const fetchUserRoles = async (userId: string, token: string): Promise<str
 /**
  * Fetches the permissions assigned to the roles.
  */
-export const fetchUserPermissions = async (roles: string[], token: string): Promise<Permission[]> => {
+export const fetchUserPermissions = async (
+  roles: string[],
+  token: string,
+): Promise<Permission[]> => {
   try {
     const response = await axios.get(`${ROOT_BASE}/role-permission`, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 8000,
     });
-    const allRolePermissions: any[] = Array.isArray(response.data) ? response.data : [];
-    
-    const userPermissions = allRolePermissions.filter((rp: any) => 
-      roles.includes((rp.role?.name || rp.role?.nombre || '').toUpperCase())
+    const allRolePermissions: any[] = Array.isArray(response.data)
+      ? response.data
+      : [];
+
+    const userPermissions = allRolePermissions.filter((rp: any) =>
+      roles.includes((rp.role?.name || rp.role?.nombre || "").toUpperCase()),
     );
 
-    return userPermissions.map((rp: any) => ({
-      url: rp.permission?.url || '',
-      method: rp.permission?.method || '',
-    })).filter(p => p.url && p.method);
+    return userPermissions
+      .map((rp: any) => ({
+        url: rp.permission?.url || "",
+        method: rp.permission?.method || "",
+      }))
+      .filter((p) => p.url && p.method);
   } catch {
     return [];
   }
@@ -123,10 +157,10 @@ export const fetchUserPermissions = async (roles: string[], token: string): Prom
  */
 const findCiudadanoRole = async (): Promise<string | null> => {
   try {
-    const response = await rootApi.get('/roles');
+    const response = await rootApi.get("/roles");
     const roles: any[] = Array.isArray(response.data) ? response.data : [];
     const ciudadano = roles.find(
-      (r: any) => (r.name || r.nombre || '').toUpperCase() === 'CIUDADANO'
+      (r: any) => (r.name || r.nombre || "").toUpperCase() === "CIUDADANO",
     );
     return ciudadano?.id || null;
   } catch {
@@ -136,29 +170,32 @@ const findCiudadanoRole = async (): Promise<string | null> => {
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post('/public/security/login', {
+    const response = await api.post("/public/security/login", {
       email: credentials.email,
       password: credentials.password,
       captchaToken: credentials.captchaToken,
     });
 
-    if (response.data.message === '2FA required') {
+    if (response.data.message === "2FA required") {
       return {
-        status: '2fa_required',
+        status: "2fa_required",
         email: response.data.email,
       };
     }
 
     if (!response.data || !response.data.token) {
-      throw new Error('Credenciales inválidas');
+      throw new Error("Credenciales inválidas");
     }
 
     const token = response.data.token;
     const payload = decodeJwt(token);
-    const userId = payload?.id || payload?.sub || '';
+    const userId = payload?.id || payload?.sub || "";
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const permissions =
+      roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
     const user = toFrontendUser(payload || {}, roles, permissions);
+
+    await syncPersonWithBusiness(user, token);
 
     return {
       user,
@@ -168,21 +205,24 @@ export const authService = {
   },
 
   verify2fa: async (email: string, code: string): Promise<AuthResponse> => {
-    const response = await api.post('/public/security/verify-2fa', {
+    const response = await api.post("/public/security/verify-2fa", {
       email,
       code,
     });
 
     if (!response.data || !response.data.token) {
-      throw new Error('Código inválido');
+      throw new Error("Código inválido");
     }
 
     const token = response.data.token;
     const payload = decodeJwt(token);
-    const userId = payload?.id || payload?.sub || '';
+    const userId = payload?.id || payload?.sub || "";
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const permissions =
+      roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
     const user = toFrontendUser(payload || {}, roles, permissions);
+
+    await syncPersonWithBusiness(user, token);
 
     return {
       user,
@@ -191,9 +231,7 @@ export const authService = {
     };
   },
 
-  register: async (
-    credentials: RegisterCredentials
-  ): Promise<AuthResponse> => {
+  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
     const userCreate = {
       name: `${credentials.firstName} ${credentials.lastName}`.trim(),
       email: credentials.email,
@@ -201,7 +239,7 @@ export const authService = {
     };
 
     // Step 1: Create the user (uses root URL, not /api – only /api/** passes through the security interceptor)
-    const createResponse = await rootApi.post('/users', userCreate);
+    const createResponse = await rootApi.post("/users", userCreate);
     const createdUser = createResponse.data;
 
     // Step 2: Login to get a token
@@ -212,7 +250,7 @@ export const authService = {
     });
 
     // If 2FA is required, we return the 2FA state and the admin can assign CIUDADANO later
-    if (loginResponse.status === '2fa_required') {
+    if (loginResponse.status === "2fa_required") {
       return loginResponse;
     }
 
@@ -227,17 +265,21 @@ export const authService = {
           await axios.post(
             `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
             {},
-            { headers: { Authorization: `Bearer ${token}` } }
+            { headers: { Authorization: `Bearer ${token}` } },
           );
         } catch (e) {
-          console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+          console.warn(
+            "No se pudo asignar el rol CIUDADANO automáticamente:",
+            e,
+          );
         }
       }
     }
 
     // Step 4: Re-fetch roles and return enriched user
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const permissions =
+      roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
     const payload = decodeJwt(token);
     const user = toFrontendUser(payload || {}, roles, permissions);
 
@@ -249,37 +291,47 @@ export const authService = {
   },
 
   verifyTwoFactor: async (code: string): Promise<AuthResponse> => {
-    const response = await api.post('/public/security/2fa/verify', { code });
+    const response = await api.post("/public/security/2fa/verify", { code });
 
     if (!response.data || !response.data.token) {
-      throw new Error('Código inválido');
+      throw new Error("Código inválido");
     }
 
     const token = response.data.token;
     const payload = decodeJwt(token);
-    const userId = payload?.id || payload?.sub || '';
+    const userId = payload?.id || payload?.sub || "";
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const permissions =
+      roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
     const user = toFrontendUser(payload || {}, roles, permissions);
+
+    await syncPersonWithBusiness(user, token);
 
     return {
       user,
-      token
+      token,
     };
   },
 
   forgotPassword: async (email: string): Promise<void> => {
-    await api.post('/public/security/forgot-password', { email });
+    await api.post("/public/security/forgot-password", { email });
   },
 
-  resetPassword: async (email: string, code: string, newPassword: string): Promise<void> => {
-    await api.post('/public/security/reset-password', { email, code, newPassword });
+  resetPassword: async (
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<void> => {
+    await api.post("/public/security/reset-password", {
+      email,
+      code,
+      newPassword,
+    });
   },
-
 
   updateProfile: async (userId: string, data: Partial<User>): Promise<User> => {
     const payload: any = {
-      name: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+      name: `${data.firstName || ""} ${data.lastName || ""}`.trim(),
       email: data.email,
       phoneNumber: data.phoneNumber,
       twoFactorEnabled: data.twoFactorEnabled,
@@ -292,13 +344,18 @@ export const authService = {
 
   getCurrentUser: async (token: string): Promise<User> => {
     if (isTokenExpired(token)) {
-      throw new Error('Token expirado');
+      throw new Error("Token expirado");
     }
     const payload = decodeJwt(token);
-    const userId = payload?.id || payload?.sub || '';
+    const userId = payload?.id || payload?.sub || "";
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
-    return toFrontendUser(payload || {}, roles, permissions);
+    const permissions =
+      roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const user = toFrontendUser(payload || {}, roles, permissions);
+
+    await syncPersonWithBusiness(user, token);
+
+    return user;
   },
 
   startOAuth: (provider: string): void => {
@@ -307,10 +364,13 @@ export const authService = {
 
   exchangeOAuthToken: async (token: string): Promise<AuthResponse> => {
     const payload = decodeJwt(token);
-    const userId = payload?.id || payload?.sub || '';
+    const userId = payload?.id || payload?.sub || "";
     const roles = userId ? await fetchUserRoles(userId, token) : [];
-    const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+    const permissions =
+      roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
     const user = toFrontendUser(payload || {}, roles, permissions);
+
+    await syncPersonWithBusiness(user, token);
     return {
       token,
       user,
@@ -324,23 +384,23 @@ export const authService = {
       const firebaseUser = result.user;
 
       if (!firebaseUser.email) {
-        throw new Error('El correo electrónico de Google no está disponible.');
+        throw new Error("El correo electrónico de Google no está disponible.");
       }
 
       // Enviar la información al backend para obtener un token de nuestro sistema
-      const response = await api.post('/public/security/login-social', {
+      const response = await api.post("/public/security/login-social", {
         email: firebaseUser.email,
-        name: firebaseUser.displayName || 'Usuario Google',
-        password: '', // No password for social login
+        name: firebaseUser.displayName || "Usuario Google",
+        password: "", // No password for social login
       });
 
       if (!response.data || !response.data.token) {
-        throw new Error('Error al sincronizar con el backend');
+        throw new Error("Error al sincronizar con el backend");
       }
 
       const token = response.data.token;
       const payload = decodeJwt(token);
-      const userId = payload?.id || payload?.sub || '';
+      const userId = payload?.id || payload?.sub || "";
 
       // Intentar obtener los roles. Si es nuevo, tal vez necesitemos asignarle uno por defecto?
       let roles = userId ? await fetchUserRoles(userId, token) : [];
@@ -353,17 +413,23 @@ export const authService = {
             await axios.post(
               `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
               {},
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: { Authorization: `Bearer ${token}` } },
             );
-            roles = ['CIUDADANO'];
+            roles = ["CIUDADANO"];
           } catch (e) {
-            console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+            console.warn(
+              "No se pudo asignar el rol CIUDADANO automáticamente:",
+              e,
+            );
           }
         }
       }
 
-      const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+      const permissions =
+        roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
       const user = toFrontendUser(payload || {}, roles, permissions);
+
+      await syncPersonWithBusiness(user, token);
 
       return {
         user,
@@ -371,8 +437,10 @@ export const authService = {
       };
     } catch (error: any) {
       console.error("Error en login con Google:", error);
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        throw new Error('Ya existe una cuenta con este correo electrónico pero usando otro método de inicio de sesión (ej. Microsoft o Email).');
+      if (error.code === "auth/account-exists-with-different-credential") {
+        throw new Error(
+          "Ya existe una cuenta con este correo electrónico pero usando otro método de inicio de sesión (ej. Microsoft o Email).",
+        );
       }
       throw error;
     }
@@ -384,23 +452,25 @@ export const authService = {
       const firebaseUser = result.user;
 
       if (!firebaseUser.email) {
-        throw new Error('El correo electrónico de Microsoft no está disponible.');
+        throw new Error(
+          "El correo electrónico de Microsoft no está disponible.",
+        );
       }
 
       // Enviar la información al backend para obtener un token de nuestro sistema
-      const response = await api.post('/public/security/login-social', {
+      const response = await api.post("/public/security/login-social", {
         email: firebaseUser.email,
-        name: firebaseUser.displayName || 'Usuario Microsoft',
-        password: '', // No password for social login
+        name: firebaseUser.displayName || "Usuario Microsoft",
+        password: "", // No password for social login
       });
 
       if (!response.data || !response.data.token) {
-        throw new Error('Error al sincronizar con el backend');
+        throw new Error("Error al sincronizar con el backend");
       }
 
       const token = response.data.token;
       const payload = decodeJwt(token);
-      const userId = payload?.id || payload?.sub || '';
+      const userId = payload?.id || payload?.sub || "";
 
       let roles = userId ? await fetchUserRoles(userId, token) : [];
 
@@ -411,17 +481,23 @@ export const authService = {
             await axios.post(
               `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
               {},
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: { Authorization: `Bearer ${token}` } },
             );
-            roles = ['CIUDADANO'];
+            roles = ["CIUDADANO"];
           } catch (e) {
-            console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+            console.warn(
+              "No se pudo asignar el rol CIUDADANO automáticamente:",
+              e,
+            );
           }
         }
       }
 
-      const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+      const permissions =
+        roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
       const user = toFrontendUser(payload || {}, roles, permissions);
+
+      await syncPersonWithBusiness(user, token);
 
       return {
         user,
@@ -429,8 +505,10 @@ export const authService = {
       };
     } catch (error: any) {
       console.error("Error en login con Microsoft:", error);
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        throw new Error('Ya existe una cuenta con este correo electrónico pero usando otro método de inicio de sesión (ej. Google o Email).');
+      if (error.code === "auth/account-exists-with-different-credential") {
+        throw new Error(
+          "Ya existe una cuenta con este correo electrónico pero usando otro método de inicio de sesión (ej. Google o Email).",
+        );
       }
       throw error;
     }
@@ -442,25 +520,27 @@ export const authService = {
       const firebaseUser = result.user;
 
       if (!firebaseUser.email) {
-        throw new Error('El correo electrónico de GitHub no está disponible o es privado.');
+        throw new Error(
+          "El correo electrónico de GitHub no está disponible o es privado.",
+        );
       }
 
-      const response = await api.post('/public/security/login-social', {
+      const response = await api.post("/public/security/login-social", {
         email: firebaseUser.email,
-        name: firebaseUser.displayName || 'Usuario GitHub',
-        password: '',
+        name: firebaseUser.displayName || "Usuario GitHub",
+        password: "",
       });
 
       if (!response.data || !response.data.token) {
-        throw new Error('Error al sincronizar con el backend');
+        throw new Error("Error al sincronizar con el backend");
       }
 
       const token = response.data.token;
       const payload = decodeJwt(token);
-      const userId = payload?.id || payload?.sub || '';
-      
+      const userId = payload?.id || payload?.sub || "";
+
       let roles = userId ? await fetchUserRoles(userId, token) : [];
-      
+
       if (roles.length === 0 && userId) {
         const ciudadanoRoleId = await findCiudadanoRole();
         if (ciudadanoRoleId) {
@@ -468,17 +548,23 @@ export const authService = {
             await axios.post(
               `${ROOT_BASE}/user-role/user/${userId}/role/${ciudadanoRoleId}`,
               {},
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: { Authorization: `Bearer ${token}` } },
             );
-            roles = ['CIUDADANO'];
+            roles = ["CIUDADANO"];
           } catch (e) {
-            console.warn('No se pudo asignar el rol CIUDADANO automáticamente:', e);
+            console.warn(
+              "No se pudo asignar el rol CIUDADANO automáticamente:",
+              e,
+            );
           }
         }
       }
 
-      const permissions = roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
+      const permissions =
+        roles.length > 0 ? await fetchUserPermissions(roles, token) : [];
       const user = toFrontendUser(payload || {}, roles, permissions);
+
+      await syncPersonWithBusiness(user, token);
 
       return {
         user,
@@ -486,8 +572,10 @@ export const authService = {
       };
     } catch (error: any) {
       console.error("Error en login con GitHub:", error);
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        throw new Error('Ya existe una cuenta vinculada a este correo electrónico. Por favor, inicia sesión con el método que usaste originalmente.');
+      if (error.code === "auth/account-exists-with-different-credential") {
+        throw new Error(
+          "Ya existe una cuenta vinculada a este correo electrónico. Por favor, inicia sesión con el método que usaste originalmente.",
+        );
       }
       throw error;
     }

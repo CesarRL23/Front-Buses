@@ -1,34 +1,40 @@
-import axios from 'axios';
+import axios from "axios";
 
-const BUSINESS_API_BASE = import.meta.env.VITE_BUSINESS_API_URL || 'http://localhost:3000';
+const BUSINESS_API_BASE =
+  import.meta.env.VITE_BUSINESS_API_URL || "http://localhost:3000";
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 const businessApi = axios.create({
   baseURL: BUSINESS_API_BASE,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
 // Add interceptor to automatically attach token
-businessApi.interceptors.request.use((config) => {
-  const headers = getAuthHeaders();
-  if (headers.Authorization) {
-    config.headers.Authorization = headers.Authorization;
-  }
-  return config;
-}, (error) => Promise.reject(error));
+businessApi.interceptors.request.use(
+  (config) => {
+    const headers = getAuthHeaders();
+    if (headers.Authorization) {
+      config.headers.Authorization = headers.Authorization;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
 
 export const businessService = {
   // ══════════════════════════════
   //  PERSONS
   // ══════════════════════════════
-  getPersons: async () => {
-    const response = await businessApi.get('/person');
+  getPersons: async (token?: string) => {
+    const response = await businessApi.get("/person", {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return response.data;
   },
 
@@ -37,9 +43,47 @@ export const businessService = {
     return response.data;
   },
 
-  createPerson: async (data: any) => {
-    const response = await businessApi.post('/person', data);
+  createPerson: async (data: any, token?: string) => {
+    const response = await businessApi.post("/person", data, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return response.data;
+  },
+
+  syncPerson: async (data: any, token?: string) => {
+    const response = await businessApi.post("/person/sync", data, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return response.data;
+  },
+
+  findPersonByUserId: async (userId: string, token?: string) => {
+    const persons = await businessService.getPersons(token);
+    return Array.isArray(persons)
+      ? persons.find((person: any) => String(person.userId) === String(userId))
+      : null;
+  },
+
+  ensurePersonForUser: async (
+    user: {
+      id: string;
+      name?: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    },
+    token?: string,
+  ) => {
+    if (!user?.id) return null;
+    const nombre =
+      user.name ||
+      `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+      user.email ||
+      `Usuario ${user.id}`;
+    return await businessService.syncPerson(
+      { nombre, userId: String(user.id) },
+      token,
+    );
   },
 
   updatePerson: async (id: number, data: any) => {
@@ -55,12 +99,12 @@ export const businessService = {
   //  CITIZENS
   // ══════════════════════════════
   getCitizens: async () => {
-    const response = await businessApi.get('/citizen');
+    const response = await businessApi.get("/citizen");
     return response.data;
   },
 
   createCitizen: async (data: any) => {
-    const response = await businessApi.post('/citizen', data);
+    const response = await businessApi.post("/citizen", data);
     return response.data;
   },
 
@@ -68,12 +112,12 @@ export const businessService = {
   //  DRIVERS
   // ══════════════════════════════
   getDrivers: async () => {
-    const response = await businessApi.get('/driver');
+    const response = await businessApi.get("/driver");
     return response.data;
   },
 
   createDriver: async (data: any) => {
-    const response = await businessApi.post('/driver', data);
+    const response = await businessApi.post("/driver", data);
     return response.data;
   },
 
@@ -81,12 +125,12 @@ export const businessService = {
   //  COMPANIES
   // ══════════════════════════════
   getCompanies: async () => {
-    const response = await businessApi.get('/company');
+    const response = await businessApi.get("/company");
     return response.data;
   },
 
   createCompany: async (data: any) => {
-    const response = await businessApi.post('/company', data);
+    const response = await businessApi.post("/company", data);
     return response.data;
   },
 
@@ -98,9 +142,9 @@ export const businessService = {
   deleteCompany: async (id: number) => {
     await businessApi.delete(`/company/${id}`);
   },
-  
+
   getRoutes: async (companyId?: number) => {
-    const url = companyId ? `/route?companyId=${companyId}` : '/route';
+    const url = companyId ? `/route?companyId=${companyId}` : "/route";
     const response = await businessApi.get(url);
     return response.data;
   },
@@ -116,7 +160,7 @@ export const businessService = {
   },
 
   createRoute: async (data: any) => {
-    const response = await businessApi.post('/route', data);
+    const response = await businessApi.post("/route", data);
     return response.data;
   },
 
@@ -129,17 +173,34 @@ export const businessService = {
     await businessApi.delete(`/route/${id}`);
   },
 
+  // ═════════════════════════════=
+  //  COMPANY-ADMIN (assign admin user to a company)
+  // ═════════════════════════════=
+  getCompanyAdmins: async () => {
+    const response = await businessApi.get("/company-admin");
+    return response.data;
+  },
+
+  createCompanyAdmin: async (data: { personId: number; companyId: number }) => {
+    const response = await businessApi.post("/company-admin", data);
+    return response.data;
+  },
+
+  deleteCompanyAdmin: async (id: number) => {
+    await businessApi.delete(`/company-admin/${id}`);
+  },
+
   // ══════════════════════════════
   //  BUSES
   // ══════════════════════════════
   getBuses: async (companyId?: number) => {
-    const url = companyId ? `/bus?companyId=${companyId}` : '/bus';
+    const url = companyId ? `/bus?companyId=${companyId}` : "/bus";
     const response = await businessApi.get(url);
     return response.data;
   },
 
   createBus: async (data: any) => {
-    const response = await businessApi.post('/bus', data);
+    const response = await businessApi.post("/bus", data);
     return response.data;
   },
 

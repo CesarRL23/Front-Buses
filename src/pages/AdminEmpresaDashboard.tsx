@@ -50,6 +50,12 @@ interface Company {
   name: string;
 }
 
+interface CompanyAdminAssignment {
+  id: number;
+  company?: Company;
+  person?: { id?: number; userId?: string };
+}
+
 export const AdminEmpresaDashboard: React.FC = () => {
   const { user } = useAuth();
   
@@ -98,12 +104,41 @@ export const AdminEmpresaDashboard: React.FC = () => {
       if (companiesData.length > 0) {
         setSelectedCompanyId(companiesData[0].id);
       }
-    } catch (err) {
+    } catch (err: any) {
+      const status = err?.response?.status;
+
+      // Fallback for ADMIN_EMPRESA profiles without /company GET permission.
+      if ((status === 401 || status === 403) && user?.id) {
+        try {
+          const assignments = await businessService.getCompanyAdmins() as CompanyAdminAssignment[];
+          const myCompaniesRaw = assignments
+            .filter((item) => String(item.person?.userId || '') === String(user.id))
+            .map((item) => item.company)
+            .filter((company): company is Company => Boolean(company?.id));
+
+          const uniqueById = new Map<number, Company>();
+          myCompaniesRaw.forEach((company) => {
+            uniqueById.set(company.id, company);
+          });
+          const myCompanies = Array.from(uniqueById.values());
+
+          setCompanies(myCompanies);
+          setSelectedCompanyId(myCompanies.length > 0 ? myCompanies[0].id : null);
+          if (myCompanies.length === 0) {
+            setError('No tienes una empresa asignada. Contacta al administrador del sistema.');
+          }
+          return;
+        } catch {
+          setError('No fue posible cargar tu empresa asignada.');
+          return;
+        }
+      }
+
       setError('Error al cargar empresas');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   const loadTabData = useCallback(async () => {
     if (!selectedCompanyId) return;

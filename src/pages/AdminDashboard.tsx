@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Navbar } from '../components/Navbar';
 import { adminService } from '../services/adminService';
+import { businessService } from '../services/businessService';
 import {
   Users,
   Shield,
@@ -103,6 +104,8 @@ export const AdminDashboard: React.FC = () => {
   // Data
   const [users, setUsers]               = useState<UserRecord[]>([]);
   const [roles, setRoles]               = useState<Role[]>([]);
+  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [persons, setPersons] = useState<any[]>([]);
   const [allUserRoles, setAllUserRoles] = useState<UserRoleRecord[]>([]);
   const [permissions, setPermissions]   = useState<Permission[]>([]);
   const [rolePermissions, setRolePermissions] = useState<RolePermissionRecord[]>([]);
@@ -122,6 +125,7 @@ export const AdminDashboard: React.FC = () => {
   // Role assignment
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [assigning, setAssigning]           = useState(false);
 
   // Expanded row for user roles
@@ -172,6 +176,12 @@ export const AdminDashboard: React.FC = () => {
         adminService.getPermissions(),
       ]);
 
+      // Load companies and persons from business API so we can map users -> persons
+      const [companiesData, personsData] = await Promise.all([
+        businessService.getCompanies().catch(() => []),
+        businessService.getPersons().catch(() => []),
+      ]);
+
       const myRoles = userRolesData.filter(ur => ur.user?.id === user?.id).map(ur => ur.role?.id);
       const myPermRecords = rpData.filter(rp => myRoles.includes(rp.role?.id)).map(rp => rp.permission);
 
@@ -193,6 +203,8 @@ export const AdminDashboard: React.FC = () => {
         setUsers([]);
       }
       setRoles(rolesData);
+      setCompanies(companiesData || []);
+      setPersons(personsData || []);
       setAllUserRoles(userRolesData);
       setRolePermissions(rpData);
       setPermissions(permsData);
@@ -263,11 +275,35 @@ export const AdminDashboard: React.FC = () => {
     setAssigning(true); setError(''); setSuccess('');
     try {
       await adminService.assignRole(selectedUserId, selectedRoleId);
+      // If role represents a company admin, also create company-admin relation
+      const roleObj = roles.find(r => r.id === selectedRoleId);
+      const needsCompany = roleObj?.name?.toUpperCase().includes('EMPRESA');
+
+      if (needsCompany) {
+        if (!selectedCompanyId) {
+          throw new Error('Selecciona la empresa para asignar el administrador');
+        }
+
+        const person = persons.find((p) => String(p.userId) === String(selectedUserId));
+        if (!person) {
+          throw new Error('No existe una Person en ms-negocio-buses asociada a este usuario. Debe existir person.userId = user.id.');
+        }
+
+        await businessService.createCompanyAdmin({
+          personId: Number(person.id),
+          companyId: Number(selectedCompanyId),
+        });
+      }
+
       setSuccess('Rol asignado correctamente.');
-      setSelectedUserId(''); setSelectedRoleId('');
+      setSelectedUserId(''); setSelectedRoleId(''); setSelectedCompanyId('');
       await loadData();
-    } catch {
-      setError('Error al asignar el rol. Puede que el usuario ya tenga ese rol.');
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      const message = Array.isArray(backendMessage)
+        ? backendMessage.join(', ')
+        : backendMessage || error?.message || 'Error al asignar el rol. Verifica la existencia de la persona y la empresa.';
+      setError(message);
     } finally {
       setAssigning(false);
     }
@@ -569,6 +605,20 @@ export const AdminDashboard: React.FC = () => {
                           <option key={r.id} value={r.id}>{r.name}</option>
                         ))}
                       </select>
+                      {roles.find(r => r.id === selectedRoleId)?.name?.toUpperCase().includes('EMPRESA') && (
+                        <select
+                          id="select-company"
+                          value={selectedCompanyId}
+                          onChange={e => setSelectedCompanyId(e.target.value)}
+                          className="sm:col-span-4 border border-blue-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                          required
+                        >
+                          <option value="">— Seleccionar empresa —</option>
+                          {companies.map(c => (
+                            <option key={c.id} value={String(c.id)}>{c.name}</option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         type="submit"
                         disabled={assigning}

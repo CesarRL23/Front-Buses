@@ -16,8 +16,6 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { CompanyManager } from '../components/CompanyManager';
-
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: 'bg-red-100 text-red-800',
@@ -173,10 +171,6 @@ export const Dashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* GESTIÓN DE EMPRESAS (Dinámico por permisos) */}
-        <div className="mb-8">
-          <CompanyManager />
-        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Recent activity */}

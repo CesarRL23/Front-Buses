@@ -56,6 +56,22 @@ interface CompanyAdminAssignment {
   person?: { id?: number; userId?: string };
 }
 
+interface Whereabout {
+  id: number;
+  nombre: string;
+  latitud: number;
+  longitud: number;
+  direccion: string;
+  activo: boolean;
+}
+
+interface RouteNodeData {
+  id: number;
+  orden: number;
+  stop?: Whereabout;
+  whereaboutId?: number;
+}
+
 export const AdminEmpresaDashboard: React.FC = () => {
   const { user } = useAuth();
   
@@ -63,6 +79,7 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'routes' | 'buses'>('routes');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [whereabouts, setWhereabouts] = useState<Whereabout[]>([]);
   
   const [routes, setRoutes] = useState<Route[]>([]);
   const [buses, setBuses] = useState<BusRecord[]>([]);
@@ -75,6 +92,9 @@ export const AdminEmpresaDashboard: React.FC = () => {
   // Forms
   const [showRouteForm, setShowRouteForm] = useState(false);
   const [editingRoute, setEditingRoute] = useState<Route | null>(null);
+  const [loadingRouteStops, setLoadingRouteStops] = useState(false);
+  const [routeStopSearch, setRouteStopSearch] = useState('');
+  const [selectedStopIds, setSelectedStopIds] = useState<number[]>([]);
   const [routeForm, setRouteForm] = useState({
     nombre: '',
     descripcion: '',
@@ -99,8 +119,12 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const companiesData = await businessService.getCompanies();
+      const [companiesData, whereaboutsData] = await Promise.all([
+        businessService.getCompanies(),
+        businessService.getWhereabouts().catch(() => []),
+      ]);
       setCompanies(companiesData);
+      setWhereabouts(Array.isArray(whereaboutsData) ? whereaboutsData : []);
       if (companiesData.length > 0) {
         setSelectedCompanyId(companiesData[0].id);
       }
@@ -161,6 +185,53 @@ export const AdminEmpresaDashboard: React.FC = () => {
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
   useEffect(() => { loadTabData(); }, [loadTabData]);
 
+  const resetRouteForm = () => {
+    setShowRouteForm(false);
+    setEditingRoute(null);
+    setRouteForm({ nombre: '', descripcion: '', origen: '', destino: '', distancia: 0, duracion_estimada: 0, tarifa: 0 });
+    setSelectedStopIds([]);
+    setRouteStopSearch('');
+  };
+
+  const toggleStopSelection = (stopId: number) => {
+    setSelectedStopIds((current) => (
+      current.includes(stopId)
+        ? current.filter((id) => id !== stopId)
+        : [...current, stopId]
+    ));
+  };
+
+  const moveSelectedStop = (index: number, direction: -1 | 1) => {
+    setSelectedStopIds((current) => {
+      const next = [...current];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= next.length) return current;
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      return next;
+    });
+  };
+
+  const removeSelectedStop = (stopId: number) => {
+    setSelectedStopIds((current) => current.filter((id) => id !== stopId));
+  };
+
+  const loadRouteStops = async (routeId: number) => {
+    setLoadingRouteStops(true);
+    try {
+      const response = await businessService.getRouteNodos(routeId);
+      const routeNodos: RouteNodeData[] = Array.isArray(response?.nodos) ? response.nodos : [];
+      const orderedStopIds = routeNodos
+        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+        .map((node) => Number(node.stop?.id || node.whereaboutId || 0))
+        .filter((id) => id > 0);
+      setSelectedStopIds(orderedStopIds);
+    } catch {
+      setSelectedStopIds([]);
+    } finally {
+      setLoadingRouteStops(false);
+    }
+  };
+
   // Feedback auto-clear
   useEffect(() => {
     if (success || error) {
@@ -176,16 +247,41 @@ export const AdminEmpresaDashboard: React.FC = () => {
     setActionLoading(true);
     try {
       const payload = { ...routeForm, companyId: selectedCompanyId };
+      const stopIds = [...selectedStopIds];
+      let routeId = editingRoute?.id;
+
       if (editingRoute) {
         await businessService.updateRoute(editingRoute.id, payload);
         setSuccess('Ruta actualizada correctamente');
       } else {
-        await businessService.createRoute(payload);
+        const createdRoute = await businessService.createRoute(payload);
+        routeId = createdRoute?.id;
         setSuccess('Ruta creada correctamente');
       }
-      setShowRouteForm(false);
-      setEditingRoute(null);
-      setRouteForm({ nombre: '', descripcion: '', origen: '', destino: '', distancia: 0, duracion_estimada: 0, tarifa: 0 });
+
+      if (routeId) {
+        if (editingRoute) {
+          const currentNodesResponse = await businessService.getRouteNodos(routeId).catch(() => null);
+          const currentNodes: RouteNodeData[] = Array.isArray(currentNodesResponse?.nodos)
+            ? currentNodesResponse.nodos
+            : [];
+
+          await Promise.all(
+            currentNodes.map((node) => businessService.deleteNodo(node.id).catch(() => undefined)),
+          );
+        }
+
+        for (let index = 0; index < stopIds.length; index += 1) {
+          const stopId = stopIds[index];
+          await businessService.createNodo({
+            routeId,
+            whereaboutId: stopId,
+            orden: index + 1,
+          });
+        }
+      }
+
+      resetRouteForm();
       loadTabData();
     } catch (err) {
       setError('Error al guardar la ruta');
@@ -208,7 +304,7 @@ export const AdminEmpresaDashboard: React.FC = () => {
     }
   };
 
-  const startEditRoute = (route: Route) => {
+  const startEditRoute = async (route: Route) => {
     setEditingRoute(route);
     setRouteForm({
       nombre: route.nombre,
@@ -220,6 +316,7 @@ export const AdminEmpresaDashboard: React.FC = () => {
       tarifa: route.tarifa
     });
     setShowRouteForm(true);
+    await loadRouteStops(route.id);
   };
 
   // ─── Bus Handlers ──────────────────────────────────────────────────────────
@@ -361,7 +458,13 @@ export const AdminEmpresaDashboard: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-black text-gray-900">Gestión de Rutas</h2>
                   <button
-                    onClick={() => setShowRouteForm(true)}
+                    onClick={() => {
+                      setEditingRoute(null);
+                      setRouteForm({ nombre: '', descripcion: '', origen: '', destino: '', distancia: 0, duracion_estimada: 0, tarifa: 0 });
+                      setSelectedStopIds([]);
+                      setRouteStopSearch('');
+                      setShowRouteForm(true);
+                    }}
                     className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-orange-200 transition-all active:scale-95"
                   >
                     <Plus className="h-5 w-5" />
@@ -468,10 +571,130 @@ export const AdminEmpresaDashboard: React.FC = () => {
                         />
                       </div>
 
+                      <div className="md:col-span-2 lg:col-span-3 space-y-4 rounded-2xl border border-dashed border-orange-200 bg-orange-50/40 p-4">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div>
+                            <label className="text-sm font-bold text-gray-700 ml-1">Paraderos de la ruta</label>
+                            <p className="text-xs text-gray-500 ml-1 mt-1">
+                              Selecciona y ordena los paraderos por los que pasa esta ruta.
+                            </p>
+                          </div>
+                          {loadingRouteStops && (
+                            <span className="inline-flex items-center gap-2 text-xs font-bold text-orange-700 bg-white px-3 py-2 rounded-full border border-orange-200">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Cargando paraderos de la ruta...
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="rounded-2xl bg-white p-4 border border-orange-100 shadow-sm space-y-4">
+                            <div className="flex items-center gap-2">
+                              <Search className="h-4 w-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={routeStopSearch}
+                                onChange={(e) => setRouteStopSearch(e.target.value)}
+                                placeholder="Buscar paradero..."
+                                className="w-full bg-transparent outline-none text-sm font-medium text-gray-700 placeholder:text-gray-400"
+                              />
+                            </div>
+
+                            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                              {whereabouts
+                                .filter((stop) =>
+                                  `${stop.nombre} ${stop.direccion}`.toLowerCase().includes(routeStopSearch.toLowerCase()),
+                                )
+                                .map((stop) => {
+                                  const isSelected = selectedStopIds.includes(stop.id);
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={stop.id}
+                                      onClick={() => toggleStopSelection(stop.id)}
+                                      className={`w-full flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                                        isSelected
+                                          ? 'border-orange-300 bg-orange-50'
+                                          : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/50'
+                                      }`}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-gray-900 truncate">{stop.nombre}</p>
+                                        <p className="text-xs text-gray-500 truncate">{stop.direccion}</p>
+                                      </div>
+                                      <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isSelected ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                        {isSelected ? 'AGREGADO' : 'AGREGAR'}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-white p-4 border border-orange-100 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold text-gray-700">Orden seleccionado</p>
+                              <span className="text-xs font-bold text-orange-700 bg-orange-50 px-3 py-1 rounded-full">
+                                {selectedStopIds.length} paraderos
+                              </span>
+                            </div>
+
+                            {selectedStopIds.length === 0 ? (
+                              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-10 text-center text-sm text-gray-500">
+                                Elige los paraderos desde la lista de la izquierda.
+                              </div>
+                            ) : (
+                              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                {selectedStopIds.map((stopId, index) => {
+                                  const stop = whereabouts.find((item) => item.id === stopId);
+                                  if (!stop) return null;
+                                  return (
+                                    <div key={stop.id} className="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+                                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-600 text-white text-sm font-black">
+                                        {index + 1}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-bold text-gray-900 truncate">{stop.nombre}</p>
+                                        <p className="text-xs text-gray-500 truncate">{stop.direccion}</p>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => moveSelectedStop(index, -1)}
+                                          disabled={index === 0}
+                                          className="rounded-lg border border-orange-200 bg-white px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                        >
+                                          ↑
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => moveSelectedStop(index, 1)}
+                                          disabled={index === selectedStopIds.length - 1}
+                                          className="rounded-lg border border-orange-200 bg-white px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                        >
+                                          ↓
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeSelectedStop(stop.id)}
+                                          className="rounded-lg border border-red-200 bg-white px-2 py-1 text-xs font-bold text-red-600"
+                                        >
+                                          Quitar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-3 pt-4">
                         <button
                           type="button"
-                          onClick={() => { setShowRouteForm(false); setEditingRoute(null); }}
+                          onClick={resetRouteForm}
                           className="px-8 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition"
                         >
                           Cancelar

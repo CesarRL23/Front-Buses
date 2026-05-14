@@ -106,12 +106,12 @@ export const fetchUserRoles = async (
   token: string,
 ): Promise<string[]> => {
   try {
-    const response = await axios.get(`${ROOT_BASE}/user-role`, {
+    // Prefer the per-user endpoint to avoid requiring permission to list all mappings
+    const response = await axios.get(`${ROOT_BASE}/user-role/user/${userId}`, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 8000,
     });
-    const allRoles: any[] = Array.isArray(response.data) ? response.data : [];
-    const userRoles = allRoles.filter((ur: any) => ur.user?.id === userId);
+    const userRoles: any[] = Array.isArray(response.data) ? response.data : [];
     return userRoles
       .map((ur: any) => ur.role?.name || ur.role?.nombre || "")
       .filter(Boolean)

@@ -22,6 +22,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { RoutesExplorer } from '../components/RoutesExplorer';
+import { NearestStops } from '../components/NearestStops';
 import { StatsCard, MetricBadge, ActivityFeed, QuickActionButton, EmptyState } from '../components/DashboardComponents';
 
 export const CiudadanoDashboard: React.FC = () => {
@@ -247,6 +248,18 @@ export const CiudadanoDashboard: React.FC = () => {
                  </button>
               </div>
            </div>
+        </section>
+
+        {/* Nearest Stops Section - HU-ENTR-2-002 */}
+        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+          <NearestStops
+            maxStops={5}
+            onStopSelect={(stop) => {
+              console.log('Stop selected:', stop);
+              // Aquí puedes implementar acciones cuando se selecciona un paradero
+              // Por ejemplo, mostrar rutas disponibles, reservar asiento, etc.
+            }}
+          />
         </section>
 
         {/* Recent Trips Section */}

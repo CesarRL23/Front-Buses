@@ -143,6 +143,28 @@ export const businessService = {
     await businessApi.delete(`/company/${id}`);
   },
 
+  // ══════════════════════════════
+  //  WHEREABOUTS / PARADEROS
+  // ══════════════════════════════
+  getWhereabouts: async () => {
+    const response = await businessApi.get("/whereabouts");
+    return response.data;
+  },
+
+  createWhereabout: async (data: any) => {
+    const response = await businessApi.post("/whereabouts", data);
+    return response.data;
+  },
+
+  updateWhereabout: async (id: number, data: any) => {
+    const response = await businessApi.patch(`/whereabouts/${id}`, data);
+    return response.data;
+  },
+
+  deleteWhereabout: async (id: number) => {
+    await businessApi.delete(`/whereabouts/${id}`);
+  },
+
   getRoutes: async (companyId?: number) => {
     const url = companyId ? `/route?companyId=${companyId}` : "/route";
     const response = await businessApi.get(url);
@@ -171,6 +193,28 @@ export const businessService = {
 
   deleteRoute: async (id: number) => {
     await businessApi.delete(`/route/${id}`);
+  },
+
+  // ══════════════════════════════
+  //  NODOS
+  // ══════════════════════════════
+  getNodos: async () => {
+    const response = await businessApi.get("/nodo");
+    return response.data;
+  },
+
+  createNodo: async (data: any) => {
+    const response = await businessApi.post("/nodo", data);
+    return response.data;
+  },
+
+  updateNodo: async (id: number, data: any) => {
+    const response = await businessApi.patch(`/nodo/${id}`, data);
+    return response.data;
+  },
+
+  deleteNodo: async (id: number) => {
+    await businessApi.delete(`/nodo/${id}`);
   },
 
   // ═════════════════════════════=

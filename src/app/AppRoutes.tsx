@@ -6,6 +6,7 @@ import { Register } from '../pages/Register';
 import { ForgotPassword } from '../pages/ForgotPassword';
 import { TwoFactor } from '../pages/TwoFactor';
 import { Dashboard } from '../pages/Dashboard';
+import { DashboardRedirect } from '../components/DashboardRedirect';
 import { Profile } from '../pages/Profile';
 import { OAuthCallback } from '../pages/OAuthCallback';
 import { AdminDashboard } from '../pages/AdminDashboard';
@@ -28,7 +29,7 @@ export const AppRoutes: React.FC = () => {
           path="/dashboard"
           element={
             <PrivateRoute>
-              <Dashboard />
+              <DashboardRedirect />
             </PrivateRoute>
           }
         />

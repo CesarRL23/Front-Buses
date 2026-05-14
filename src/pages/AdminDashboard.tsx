@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Navbar } from '../components/Navbar';
 import { adminService } from '../services/adminService';
 import { businessService } from '../services/businessService';
+import { WhereaboutManager } from '../components/WhereaboutManager';
 import {
   Users,
   Shield,
@@ -24,6 +25,7 @@ import {
   Briefcase,
   BarChart3,
   Activity,
+  MapPin,
 } from 'lucide-react';
 import { StatsCard, ActivityFeed, MetricBadge, QuickActionButton } from '../components/DashboardComponents';
 
@@ -111,7 +113,7 @@ export const AdminDashboard: React.FC = () => {
   const [rolePermissions, setRolePermissions] = useState<RolePermissionRecord[]>([]);
 
   // UI
-  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms'>('users');
+  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts'>('users');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [success, setSuccess]           = useState('');
@@ -436,7 +438,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // ─── Access denied ─────────────────────────────────────────────────────────
-  if (!loading && !perms.canListUsers && !perms.canManageRoles && !perms.canManagePerms) {
+  if (!loading && !isAdmin && !perms.canListUsers && !perms.canManageRoles && !perms.canManagePerms) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
@@ -537,6 +539,7 @@ export const AdminDashboard: React.FC = () => {
             perms.canManageRoles ? { key: 'roles', label: 'Roles', icon: Briefcase } : null,
             perms.canManagePerms ? { key: 'permissions', label: 'Permisos', icon: Key } : null,
             perms.canManagePerms ? { key: 'rolePerms', label: 'Asignaciones', icon: Lock } : null,
+            isAdmin || perms.canManagePerms ? { key: 'whereabouts', label: 'Paraderos', icon: MapPin } : null,
           ].filter(Boolean) as any[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1141,6 +1144,15 @@ export const AdminDashboard: React.FC = () => {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════
+                TAB: PARADEROS
+            ══════════════════════════════════════════ */}
+            {activeTab === 'whereabouts' && (
+              <div className="space-y-6">
+                <WhereaboutManager />
               </div>
             )}
           </>

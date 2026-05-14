@@ -1,4 +1,4 @@
-import { useAuth } from './useAuth';
+import { useAuth } from "./useAuth";
 
 export const usePermission = () => {
   const { user } = useAuth();
@@ -9,23 +9,28 @@ export const usePermission = () => {
    * @param method The HTTP method (e.g., 'POST')
    */
   const hasPermission = (url: string, method: string): boolean => {
-    if (!user || !user.permissions) return false;
+    if (!user) return false;
 
-    const normalize = (path: string) => path.replace(/\/+$/, '') || '/';
+    const isAdmin =
+      user.roles?.some((role) => role.toUpperCase() === "ADMIN") ?? false;
+    if (isAdmin) return true;
+
+    if (!user.permissions) return false;
+
+    const normalize = (path: string) => path.replace(/\/+$/, "") || "/";
     const normalizedUrl = normalize(url);
 
-    console.log('Checking permission for:', { url, method, normalizedUrl });
-    console.log('User permissions:', user.permissions);
+    console.log("Checking permission for:", { url, method, normalizedUrl });
+    console.log("User permissions:", user.permissions);
 
-    return user.permissions.some(
-      (p) => {
-        const normalizedPermUrl = normalize(p.url);
-        return (
-          (normalizedUrl === normalizedPermUrl || normalizedUrl.startsWith(normalizedPermUrl + '/')) && 
-          p.method.toUpperCase() === method.toUpperCase()
-        );
-      }
-    );
+    return user.permissions.some((p) => {
+      const normalizedPermUrl = normalize(p.url);
+      return (
+        (normalizedUrl === normalizedPermUrl ||
+          normalizedUrl.startsWith(normalizedPermUrl + "/")) &&
+        p.method.toUpperCase() === method.toUpperCase()
+      );
+    });
   };
 
   return { hasPermission };

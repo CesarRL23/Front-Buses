@@ -26,8 +26,10 @@ import {
   BarChart3,
   Activity,
   MapPin,
+  Building,
 } from 'lucide-react';
 import { StatsCard, ActivityFeed, MetricBadge, QuickActionButton } from '../components/DashboardComponents';
+import { CompanyManager } from '../components/CompanyManager';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Role { id: string; name: string; description?: string; }
@@ -114,6 +116,7 @@ export const AdminDashboard: React.FC = () => {
 
   // UI
   const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts'>('users');
+  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts' | 'empresas'>('users');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [success, setSuccess]           = useState('');
@@ -540,6 +543,7 @@ export const AdminDashboard: React.FC = () => {
             perms.canManagePerms ? { key: 'permissions', label: 'Permisos', icon: Key } : null,
             perms.canManagePerms ? { key: 'rolePerms', label: 'Asignaciones', icon: Lock } : null,
             isAdmin || perms.canManagePerms ? { key: 'whereabouts', label: 'Paraderos', icon: MapPin } : null,
+            isAdmin ? { key: 'empresas', label: 'Empresas', icon: Building } : null,
           ].filter(Boolean) as any[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1153,6 +1157,15 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'whereabouts' && (
               <div className="space-y-6">
                 <WhereaboutManager />
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════
+                TAB: EMPRESAS
+            ══════════════════════════════════════════ */}
+            {activeTab === 'empresas' && (
+              <div className="space-y-6">
+                <CompanyManager />
               </div>
             )}
           </>

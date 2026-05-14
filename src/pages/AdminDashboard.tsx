@@ -115,7 +115,6 @@ export const AdminDashboard: React.FC = () => {
   const [rolePermissions, setRolePermissions] = useState<RolePermissionRecord[]>([]);
 
   // UI
-  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts'>('users');
   const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts' | 'empresas'>('users');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');

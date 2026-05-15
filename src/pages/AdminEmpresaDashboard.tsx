@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Navbar } from '../components/Navbar';
 import { businessService } from '../services/businessService';
+import { calculateDistance } from '../services/stopService';
 import {
   Bus,
   Route as RouteIcon,
@@ -273,11 +274,41 @@ export const AdminEmpresaDashboard: React.FC = () => {
 
         for (let index = 0; index < stopIds.length; index += 1) {
           const stopId = stopIds[index];
-          await businessService.createNodo({
+          const currentStop = whereabouts.find((item) => item.id === stopId);
+          const previousStop = index > 0 ? whereabouts.find((item) => item.id === stopIds[index - 1]) : undefined;
+          const distanciaDesdeAnterior =
+            index === 0 || !currentStop || !previousStop
+              ? 0
+              : Math.round(
+                  calculateDistance(
+                    previousStop.latitud,
+                    previousStop.longitud,
+                    currentStop.latitud,
+                    currentStop.longitud,
+                  ),
+                );
+          const tiempoEstimadoDesdeAnterior =
+            index === 0 || distanciaDesdeAnterior === 0
+              ? 0
+              : Math.max(1, Math.round((distanciaDesdeAnterior / 1000 / 25) * 60));
+
+          const nodoPayload = {
             routeId,
             whereaboutId: stopId,
             orden: index + 1,
-          });
+            distanciaDesdeAnterior,
+            tiempoEstimadoDesdeAnterior,
+          };
+          // Debug: log payload and capture server error details
+          // eslint-disable-next-line no-console
+          console.debug('Creating nodo payload', nodoPayload);
+          try {
+            await businessService.createNodo(nodoPayload);
+          } catch (createErr: any) {
+            // eslint-disable-next-line no-console
+            console.error('createNodo failed', createErr?.response?.status, createErr?.response?.data, nodoPayload);
+            throw createErr;
+          }
         }
       }
 

@@ -15,6 +15,26 @@ const businessApi = axios.create({
   },
 });
 
+const normalizeRouteNodosResponse = (payload: any) => {
+  if (Array.isArray(payload)) {
+    return { route: null, nodos: payload };
+  }
+
+  const route = payload?.route ?? payload?.data?.route ?? null;
+  const directNodos = Array.isArray(payload?.nodos) ? payload.nodos : null;
+  const routeNodos = Array.isArray(route?.nodos) ? route.nodos : null;
+  const alternateNodos = Array.isArray(payload?.routeNodos)
+    ? payload.routeNodos
+    : null;
+  const nodos = directNodos || routeNodos || alternateNodos || [];
+
+  return {
+    ...payload,
+    route,
+    nodos,
+  };
+};
+
 // Add interceptor to automatically attach token
 businessApi.interceptors.request.use(
   (config) => {
@@ -178,7 +198,7 @@ export const businessService = {
 
   getRouteNodos: async (routeId: number) => {
     const response = await businessApi.get(`/route/${routeId}/nodos`);
-    return response.data;
+    return normalizeRouteNodosResponse(response.data);
   },
 
   createRoute: async (data: any) => {

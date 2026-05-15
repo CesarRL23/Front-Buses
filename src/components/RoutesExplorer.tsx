@@ -19,7 +19,11 @@ interface NodoData {
   orden: number;
   distanciaDesdeAnterior: number;
   tiempoEstimadoDesdeAnterior: number;
-  stop: Whereabout;
+  stop?: Whereabout;
+  whereabout?: Whereabout;
+  whereabouts?: Whereabout;
+  stopId?: number;
+  whereaboutId?: number;
 }
 
 interface RouteData {
@@ -78,7 +82,9 @@ const RouteMap: React.FC<{ nodos: NodoData[] }> = ({ nodos }) => {
         mapInstanceRef.current = null;
       }
 
-      const validNodos = nodos.filter(n => n.stop?.latitud && n.stop?.longitud);
+      const getNodeStop = (nodo: NodoData) => nodo.stop || nodo.whereabout || nodo.whereabouts;
+
+      const validNodos = nodos.filter(n => getNodeStop(n)?.latitud && getNodeStop(n)?.longitud);
       if (validNodos.length === 0) return;
 
       const map = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true });
@@ -92,8 +98,9 @@ const RouteMap: React.FC<{ nodos: NodoData[] }> = ({ nodos }) => {
       const colors = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444'];
 
       validNodos.forEach((nodo, idx) => {
-        const lat = Number(nodo.stop.latitud);
-        const lng = Number(nodo.stop.longitud);
+        const stop = getNodeStop(nodo)!;
+        const lat = Number(stop.latitud);
+        const lng = Number(stop.longitud);
         coords.push([lat, lng]);
 
         const isFirst = idx === 0;
@@ -110,8 +117,8 @@ const RouteMap: React.FC<{ nodos: NodoData[] }> = ({ nodos }) => {
         circle.bindPopup(`
           <div style="font-family:system-ui;min-width:160px">
             <div style="font-weight:700;font-size:13px;margin-bottom:4px">${label}</div>
-            <div style="font-size:12px;color:#6B7280">${nodo.stop.nombre}</div>
-            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${nodo.stop.direccion || ''}</div>
+            <div style="font-size:12px;color:#6B7280">${stop.nombre}</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${stop.direccion || ''}</div>
           </div>
         `);
       });
@@ -169,8 +176,8 @@ export const RoutesExplorer: React.FC<{ onClose: () => void }> = ({ onClose }) =
     try {
       setLoadingDetail(true);
       const data = await businessService.getRouteNodos(route.id);
-      setSelectedRoute(data.route);
-      setSelectedNodos(data.nodos || []);
+      setSelectedRoute(data.route || route);
+      setSelectedNodos((data.nodos || []).sort((a: NodoData, b: NodoData) => (a.orden || 0) - (b.orden || 0)));
     } catch {
       setSelectedRoute(route);
       setSelectedNodos(route.nodos?.sort((a, b) => (a.orden || 0) - (b.orden || 0)) || []);
@@ -247,7 +254,7 @@ export const RoutesExplorer: React.FC<{ onClose: () => void }> = ({ onClose }) =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Map */}
           <div className="lg:col-span-7 bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden" style={{ minHeight: 420 }}>
-            {selectedNodos.length > 0 && selectedNodos.some(n => n.stop?.latitud) ? (
+            {selectedNodos.length > 0 && selectedNodos.some(n => (n.stop || n.whereabout || n.whereabouts)?.latitud) ? (
               <RouteMap nodos={selectedNodos} />
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400 flex-col gap-3 p-10">
@@ -285,10 +292,10 @@ export const RoutesExplorer: React.FC<{ onClose: () => void }> = ({ onClose }) =
                       {/* Stop info */}
                       <div className="pb-5 flex-1 min-w-0">
                         <p className="font-bold text-gray-900 text-sm truncate">
-                          {nodo.stop?.nombre || `Paradero ${nodo.orden}`}
+                          {(nodo.stop || nodo.whereabout || nodo.whereabouts)?.nombre || `Paradero ${nodo.orden}`}
                         </p>
                         <p className="text-xs text-gray-400 truncate">
-                          {nodo.stop?.direccion || 'Sin dirección'}
+                          {(nodo.stop || nodo.whereabout || nodo.whereabouts)?.direccion || 'Sin dirección'}
                         </p>
                         {!isFirst && nodo.tiempoEstimadoDesdeAnterior > 0 && (
                           <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-semibold mt-1 bg-blue-50 px-2 py-0.5 rounded-full">

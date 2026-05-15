@@ -225,12 +225,19 @@ export const NearestStops: React.FC<NearestStopsProps> = ({ onStopSelect, maxSto
                             <p className="text-xs text-slate-600">
                               {route.origen} → {route.destino}
                             </p>
+                            <p className={`text-[11px] font-semibold mt-1 ${route.active ? 'text-emerald-700' : 'text-amber-700'}`}>
+                              {route.active ? 'Ruta activa' : 'Ruta con paradero asociado, pero sin programación activa'}
+                            </p>
                             {route.descripcion && (
                               <p className="text-xs text-slate-500 mt-1">{route.descripcion}</p>
                             )}
                           </div>
                           <span className="ml-2 flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            ${route.tarifa.toFixed(2)}
+                            {(() => {
+                              const n = Number(route.tarifa);
+                              if (!Number.isFinite(n)) return 'N/A';
+                              return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);
+                            })()}
                           </span>
                         </div>
                       </div>

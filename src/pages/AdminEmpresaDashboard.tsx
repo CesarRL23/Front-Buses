@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Navbar } from '../components/Navbar';
 import { businessService } from '../services/businessService';
 import { calculateDistance } from '../services/stopService';
+import { RouteScheduleManager } from '../components/RouteScheduleManager';
 import {
   Bus,
   Route as RouteIcon,
@@ -20,7 +21,8 @@ import {
   AlertCircle,
   Loader2,
   Navigation,
-  CheckCircle2
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -77,7 +79,7 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const { user } = useAuth();
   
   // State
-  const [activeTab, setActiveTab] = useState<'routes' | 'buses'>('routes');
+  const [activeTab, setActiveTab] = useState<'routes' | 'buses' | 'schedules'>('routes');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [whereabouts, setWhereabouts] = useState<Whereabout[]>([]);
@@ -470,6 +472,17 @@ export const AdminEmpresaDashboard: React.FC = () => {
           >
             <Bus className="h-5 w-5" />
             Buses
+          </button>
+          <button
+            onClick={() => setActiveTab('schedules')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
+              activeTab === 'schedules' 
+                ? 'bg-white text-orange-600 shadow-sm' 
+                : 'text-gray-500 hover:bg-white/50'
+            }`}
+          >
+            <Calendar className="h-5 w-5" />
+            Programación
           </button>
         </div>
 
@@ -960,6 +973,13 @@ export const AdminEmpresaDashboard: React.FC = () => {
                   </div>
                 </div>
               </>
+            )}
+
+            {/* ══════════════════════════════════════════
+                SCHEDULES SECTION
+            ══════════════════════════════════════════ */}
+            {activeTab === 'schedules' && selectedCompanyId && (
+              <RouteScheduleManager companyId={selectedCompanyId} />
             )}
           </div>
         )}

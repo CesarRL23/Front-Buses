@@ -283,6 +283,9 @@ export const authService = {
     const payload = decodeJwt(token);
     const user = toFrontendUser(payload || {}, roles, permissions);
 
+    // Sync again now that roles are assigned
+    await syncPersonWithBusiness(user, token);
+
     return {
       user,
       token,

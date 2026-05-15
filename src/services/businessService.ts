@@ -91,6 +91,7 @@ export const businessService = {
       firstName?: string;
       lastName?: string;
       email?: string;
+      roles?: string[];
     },
     token?: string,
   ) => {
@@ -101,7 +102,7 @@ export const businessService = {
       user.email ||
       `Usuario ${user.id}`;
     return await businessService.syncPerson(
-      { nombre, userId: String(user.id) },
+      { nombre, userId: String(user.id), roles: user.roles || [] },
       token,
     );
   },
@@ -277,5 +278,39 @@ export const businessService = {
     await businessApi.delete(`/bus/${id}`);
   },
 
-  // Add more methods as needed for buses, routes, etc.
+  // ══════════════════════════════
+  //  SCHEDULES / PROGRAMMING
+  // ══════════════════════════════
+  getSchedules: async (companyId?: number) => {
+    const url = companyId ? `/programming?companyId=${companyId}` : "/programming";
+    const response = await businessApi.get(url);
+    return response.data;
+  },
+
+  createSchedule: async (data: any) => {
+    const response = await businessApi.post("/programming", data);
+    return response.data;
+  },
+
+  updateSchedule: async (id: number, data: any) => {
+    const response = await businessApi.patch(`/programming/${id}`, data);
+    return response.data;
+  },
+
+  deleteSchedule: async (id: number) => {
+    await businessApi.delete(`/programming/${id}`);
+  },
+
+  // ══════════════════════════════
+  //  SHIFTS
+  // ══════════════════════════════
+  getShifts: async () => {
+    const response = await businessApi.get("/shift");
+    return response.data;
+  },
+
+  startShift: async (id: number, data: { estado_bus: boolean; observaciones_bus?: string }) => {
+    const response = await businessApi.patch(`/shift/${id}/start`, data);
+    return response.data;
+  },// Add more methods as needed for buses, routes, etc.
 };

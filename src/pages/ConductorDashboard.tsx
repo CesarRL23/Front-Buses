@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { businessService } from '../services/businessService';
+import { IncidentReportModal } from '../components/IncidentReportModal';
+import { IncidentData } from '../types/incident.types';
 import { 
   Bus, 
   MapPin, 
@@ -15,7 +17,8 @@ import {
   Play,
   CheckCircle2,
   X,
-  Loader2
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface Shift {
@@ -42,6 +45,11 @@ export const ConductorDashboard: React.FC = () => {
   const [busState, setBusState] = useState<'operativo' | 'observaciones'>('operativo');
   const [busNotes, setBusNotes] = useState('');
 
+  // Incident Report Modal state
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [shiftIncidents, setShiftIncidents] = useState<IncidentData[]>([]);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
+
   const loadShifts = async () => {
     try {
       setLoading(true);
@@ -57,11 +65,31 @@ export const ConductorDashboard: React.FC = () => {
     }
   };
 
+  const loadShiftIncidents = async (shiftId: number) => {
+    try {
+      setIncidentsLoading(true);
+      const incidents = await businessService.getShiftIncidents(shiftId);
+      setShiftIncidents(Array.isArray(incidents) ? incidents : []);
+    } catch (err) {
+      console.error('Error loading shift incidents:', err);
+      setShiftIncidents([]);
+    } finally {
+      setIncidentsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isConductor) {
       loadShifts();
     }
   }, [isConductor]);
+
+  useEffect(() => {
+    const activeShift = shifts.find(s => s.estado === 'EN CURSO');
+    if (activeShift && activeShift.id) {
+      loadShiftIncidents(activeShift.id);
+    }
+  }, [shifts]);
 
   useEffect(() => {
     if (success || error) {
@@ -122,7 +150,7 @@ export const ConductorDashboard: React.FC = () => {
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-black text-gray-900">Iniciar Turno</h3>
-              <button onClick={() => setShowStartModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition">
+              <button onClick={() => setShowStartModal(false)} aria-label="Cerrar modal de turno" title="Cerrar modal de turno" className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition">
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -200,6 +228,18 @@ export const ConductorDashboard: React.FC = () => {
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {/* Incident Report Modal */}
+              <IncidentReportModal
+                isOpen={showIncidentModal}
+                onClose={() => setShowIncidentModal(false)}
+                shiftId={activeShift?.id || 0}
+                onSuccess={() => {
+                  if (activeShift?.id) {
+                    loadShiftIncidents(activeShift.id);
+                  }
+                }}
+              />
+
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
@@ -356,13 +396,74 @@ export const ConductorDashboard: React.FC = () => {
                        <AlertCircle className="h-5 w-5 text-orange-600" />
                        Reportar Novedad Rápida
                      </h3>
-                     <textarea 
-                       className="border border-gray-300 rounded-2xl w-full h-32 p-4 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all" 
-                       placeholder="Describe algún problema mecánico o incidente en la vía..." 
-                     />
-                     <button className="w-full mt-4 bg-gray-900 text-white font-bold py-3 rounded-2xl hover:bg-gray-800 transition shadow-md">
-                       Enviar Reporte
-                     </button>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Reporta cualquier incidente que ocurra durante tu turno para que quede documentado en el sistema.
+                    </p>
+                    <button 
+                      onClick={() => setShowIncidentModal(true)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-2xl transition shadow-md flex items-center justify-center gap-2"
+                    >
+                      <AlertTriangle className="h-5 w-5" />
+                      Reportar Incidente
+                    </button>
+                </div>
+              </div>
+            )}
+
+            {/* Incidents List Section */}
+            {activeShift && shiftIncidents.length > 0 && (
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  Incidentes Reportados ({shiftIncidents.length})
+                </h3>
+                <div className="space-y-3">
+                  {shiftIncidents.map((incident) => (
+                    <div
+                      key={incident.id}
+                      className={`p-4 rounded-2xl border-l-4 ${
+                        incident.gravedad === 'critico'
+                          ? 'bg-red-50 border-red-500'
+                          : incident.gravedad === 'alto'
+                          ? 'bg-orange-50 border-orange-500'
+                          : incident.gravedad === 'medio'
+                          ? 'bg-yellow-50 border-yellow-500'
+                          : 'bg-blue-50 border-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-bold text-gray-900 capitalize">
+                            {incident.tipo_otro && incident.tipo === 'otro'
+                              ? incident.tipo_otro
+                              : incident.tipo}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(incident.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <span
+                          className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${
+                            incident.gravedad === 'critico'
+                              ? 'bg-red-200 text-red-700'
+                              : incident.gravedad === 'alto'
+                              ? 'bg-orange-200 text-orange-700'
+                              : incident.gravedad === 'medio'
+                              ? 'bg-yellow-200 text-yellow-700'
+                              : 'bg-blue-200 text-blue-700'
+                          }`}
+                        >
+                          {incident.gravedad}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700">{incident.descripcion}</p>
+                      {incident.incidenteBuses?.[0]?.fotos?.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                          📷 {incident.incidenteBuses[0].fotos.length} foto(s) adjunta(s)
+                        </p>
+                      )}
+                    </div>
+                  ))}
                  </div>
               </div>
             )}

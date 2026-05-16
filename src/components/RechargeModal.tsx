@@ -91,16 +91,14 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose, o
          };
 
          console.log("Opening ePayco with data:", paymentData);
+         
+         // Para la simulación: Guardamos el monto que se va a recargar
+         // Así, cuando ePayco nos redirija de vuelta, el Dashboard sabrá cuánto sumar.
+         localStorage.setItem('pending_recharge_amount', amount.toString());
+         
          handler.open(paymentData);
          
-         // ePayco Standard Checkout normally handles the callback via 'response' URL, 
-         // but we can try to catch the window closure if possible, though handler.open 
-         // usually redirects or opens a modal that manages its own state.
-         // If we want to simulate success for the demo without waiting for the redirect:
          setLoading(false);
-         // onSuccess(newBalance); // OJO: Solo para propósitos de demostración si no hay backend real de confirmación
-         // onClose();
-
       } catch (err) {
          setError('Error al iniciar la pasarela de pagos');
          setLoading(false);

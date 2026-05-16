@@ -45,8 +45,21 @@ export const CiudadanoDashboard: React.FC = () => {
             try {
                const person = await businessService.findPersonByUserId(user.id);
                if (person) {
-                  const citizen = await businessService.getCitizenByPersonId(person.id);
-                  setCitizenData(citizen);
+                  try {
+                     const citizen = await businessService.getCitizenByPersonId(person.id);
+                     setCitizenData(citizen);
+                  } catch (e) {
+                     // Si no existe el ciudadano, usamos uno simulado persistente en localStorage
+                     const savedBalance = localStorage.getItem(`sim_balance_${user.id}`) || "0";
+                     setCitizenData({
+                        id: 0,
+                        person: person,
+                        paymentMethods: [{
+                           id: 0,
+                           paymentMethod: { id: 0, saldo: Number(savedBalance), type: 'CARD' }
+                        }]
+                     });
+                  }
                }
             } catch (error) {
                console.error("Error fetching citizen data:", error);
@@ -56,11 +69,29 @@ export const CiudadanoDashboard: React.FC = () => {
          }
       };
       fetchCitizen();
+
+      // Verificar si venimos de una recarga exitosa de ePayco (simulación por URL)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('ref_payco') || params.get('success')) {
+         const pendingAmount = localStorage.getItem('pending_recharge_amount');
+         if (pendingAmount && isCiudadano && user?.id) {
+            const currentSimBalance = Number(localStorage.getItem(`sim_balance_${user.id}`) || "0");
+            const newSimBalance = currentSimBalance + Number(pendingAmount);
+            localStorage.setItem(`sim_balance_${user.id}`, newSimBalance.toString());
+            localStorage.removeItem('pending_recharge_amount');
+            
+            // Limpiar la URL para evitar recargas dobles al refrescar
+            window.history.replaceState({}, document.title, window.location.pathname);
+         }
+         fetchCitizen();
+      }
    }, [user, isCiudadano]);
 
-   const balance = citizenData?.paymentMethods?.[0]?.paymentMethod?.saldo 
+   const balance = citizenData?.paymentMethods?.[0]?.paymentMethod?.saldo !== undefined
       ? `$ ${Number(citizenData.paymentMethods[0].paymentMethod.saldo).toLocaleString()} COP`
-      : 'Cargando...';
+      : loading 
+         ? 'Cargando...' 
+         : '$ 0 COP (Simulado)';
    const favorites = [
       { id: 1, name: 'Casa - Trabajo', route: 'Ruta 02', next: '10 min', color: 'bg-blue-500' },
       { id: 2, name: 'Gimnasio', route: 'Ruta 15', next: '15 min', color: 'bg-green-500' },
@@ -354,6 +385,9 @@ export const CiudadanoDashboard: React.FC = () => {
                            onClose={() => setIsRechargeOpen(false)}
                            citizen={citizenData}
                            onSuccess={(newBalance) => {
+                              if (citizenData.id === 0 && user?.id) {
+                                 localStorage.setItem(`sim_balance_${user.id}`, newBalance.toString());
+                              }
                               setCitizenData({
                                  ...citizenData,
                                  paymentMethods: citizenData.paymentMethods.map((pm: any, idx: number) => 

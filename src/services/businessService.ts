@@ -312,5 +312,10 @@ export const businessService = {
   startShift: async (id: number, data: { estado_bus: boolean; observaciones_bus?: string }) => {
     const response = await businessApi.patch(`/shift/${id}/start`, data);
     return response.data;
-  },// Add more methods as needed for buses, routes, etc.
+  },
+
+  getTripDetails: async (ticketId: number) => {
+    const response = await businessApi.get(`/ticket/${ticketId}/trip-details`);
+    return response.data;
+  }
 };

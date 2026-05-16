@@ -129,6 +129,16 @@ export const businessService = {
     return response.data;
   },
 
+  getCitizenByPersonId: async (personId: number) => {
+    const response = await businessApi.get(`/citizen/person/${personId}`);
+    return response.data;
+  },
+
+  rechargePaymentMethod: async (paymentMethodId: number, amount: number) => {
+    const response = await businessApi.post(`/payment-method/${paymentMethodId}/recharge`, { amount });
+    return response.data;
+  },
+
   // ══════════════════════════════
   //  DRIVERS
   // ══════════════════════════════

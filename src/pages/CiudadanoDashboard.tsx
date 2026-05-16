@@ -25,14 +25,42 @@ import { RoutesExplorer } from '../components/RoutesExplorer';
 import { NearestStops } from '../components/NearestStops';
 import { StatsCard, MetricBadge, ActivityFeed, QuickActionButton, EmptyState } from '../components/DashboardComponents';
 import { TripDetailsModal } from '../components/TripDetailsModal';
+import { RechargeModal } from '../components/RechargeModal';
+import { businessService } from '../services/businessService';
+import { useEffect } from 'react';
 
 export const CiudadanoDashboard: React.FC = () => {
    const { user } = useAuth();
    const [showRoutes, setShowRoutes] = useState(false);
    const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
+   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
+   const [citizenData, setCitizenData] = useState<any>(null);
+   const [loading, setLoading] = useState(true);
+
    const isCiudadano = user?.roles?.some(r => r.toUpperCase() === 'CIUDADANO') ?? false;
 
-   const balance = '32.400 COP';
+   useEffect(() => {
+      const fetchCitizen = async () => {
+         if (user?.id && isCiudadano) {
+            try {
+               const person = await businessService.findPersonByUserId(user.id);
+               if (person) {
+                  const citizen = await businessService.getCitizenByPersonId(person.id);
+                  setCitizenData(citizen);
+               }
+            } catch (error) {
+               console.error("Error fetching citizen data:", error);
+            } finally {
+               setLoading(false);
+            }
+         }
+      };
+      fetchCitizen();
+   }, [user, isCiudadano]);
+
+   const balance = citizenData?.paymentMethods?.[0]?.paymentMethod?.saldo 
+      ? `$ ${Number(citizenData.paymentMethods[0].paymentMethod.saldo).toLocaleString()} COP`
+      : 'Cargando...';
    const favorites = [
       { id: 1, name: 'Casa - Trabajo', route: 'Ruta 02', next: '10 min', color: 'bg-blue-500' },
       { id: 2, name: 'Gimnasio', route: 'Ruta 15', next: '15 min', color: 'bg-green-500' },
@@ -134,7 +162,12 @@ export const CiudadanoDashboard: React.FC = () => {
                            </div>
 
                            <div className="mt-12 flex gap-3">
-                              <button className="flex-1 bg-white text-blue-900 font-bold py-3 rounded-xl hover:bg-blue-50 transition-all active:scale-95 shadow-lg hover:shadow-xl text-sm uppercase tracking-wide">Recargar</button>
+                              <button 
+                                 onClick={() => setIsRechargeOpen(true)}
+                                 className="flex-1 bg-white text-blue-900 font-bold py-3 rounded-xl hover:bg-blue-50 transition-all active:scale-95 shadow-lg hover:shadow-xl text-sm uppercase tracking-wide"
+                              >
+                                 Recargar
+                              </button>
                               <button className="bg-white/20 border border-white/30 p-3 rounded-xl hover:bg-white/30 transition-all group/btn">
                                  <History className="w-6 h-6 text-white group-hover/btn:rotate-[-45deg] transition-transform" />
                               </button>
@@ -311,6 +344,23 @@ export const CiudadanoDashboard: React.FC = () => {
                         <TripDetailsModal
                            ticketId={selectedTripId}
                            onClose={() => setSelectedTripId(null)}
+                        />
+                     )}
+
+                     {/* Modal de Recarga */}
+                     {citizenData && (
+                        <RechargeModal
+                           isOpen={isRechargeOpen}
+                           onClose={() => setIsRechargeOpen(false)}
+                           citizen={citizenData}
+                           onSuccess={(newBalance) => {
+                              setCitizenData({
+                                 ...citizenData,
+                                 paymentMethods: citizenData.paymentMethods.map((pm: any, idx: number) => 
+                                    idx === 0 ? { ...pm, paymentMethod: { ...pm.paymentMethod, saldo: newBalance } } : pm
+                                 )
+                              });
+                           }}
                         />
                      )}
                   </section>

@@ -327,5 +327,25 @@ export const businessService = {
   getTripDetails: async (ticketId: number) => {
     const response = await businessApi.get(`/ticket/${ticketId}/trip-details`);
     return response.data;
+  },
+
+  // ══════════════════════════════
+  //  INCIDENTES
+  // ══════════════════════════════
+  getIncidents: async () => {
+    const response = await businessApi.get('/incidente');
+    return response.data;
+  },
+
+  getShiftIncidents: async (shiftId: number) => {
+    const response = await businessApi.get(`/incidente/shift/${shiftId}`);
+    return response.data;
+  },
+
+  getDriverIncidentHistory: async (driverId: number, limit: number = 10) => {
+    const response = await businessApi.get(
+      `/incidente/driver/${driverId}/history?limit=${limit}`,
+    );
+    return response.data;
   }
 };

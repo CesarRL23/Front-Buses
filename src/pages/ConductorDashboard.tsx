@@ -140,6 +140,24 @@ export const ConductorDashboard: React.FC = () => {
     }
   };
 
+  const handleEndShift = async () => {
+    if (!activeShift) return;
+    
+    const confirmEnd = window.confirm('¿Estás seguro de que deseas finalizar tu turno actual?');
+    if (!confirmEnd) return;
+    
+    setActionLoading(true);
+    try {
+      await businessService.endShift(activeShift.id);
+      setSuccess('¡Turno finalizado con éxito! Buen trabajo.');
+      loadShifts(); // reload to get COMPLETADO status
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Error al finalizar el turno');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
@@ -332,7 +350,12 @@ export const ConductorDashboard: React.FC = () => {
                       <button className="bg-white text-blue-600 font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95">
                         Ver Mapa / Navegación
                       </button>
-                      <button className="bg-blue-500/30 border border-white/30 text-white font-bold px-6 py-3 rounded-2xl hover:bg-blue-500/50 transition-all">
+                      <button 
+                        onClick={handleEndShift}
+                        disabled={actionLoading}
+                        className="bg-blue-500/30 border border-white/30 text-white font-bold px-6 py-3 rounded-2xl hover:bg-blue-500/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {actionLoading && <Loader2 className="h-5 w-5 animate-spin" />}
                         Finalizar Turno
                       </button>
                    </div>

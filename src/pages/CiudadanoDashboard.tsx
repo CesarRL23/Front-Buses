@@ -20,6 +20,7 @@ import {
    CheckCircle,
    Zap,
    ArrowRight,
+   Loader2,
 } from 'lucide-react';
 import { RoutesExplorer } from '../components/RoutesExplorer';
 import { NearestStops } from '../components/NearestStops';
@@ -37,7 +38,144 @@ export const CiudadanoDashboard: React.FC = () => {
    const [citizenData, setCitizenData] = useState<any>(null);
    const [loading, setLoading] = useState(true);
 
+   // Estados del Simulador de Abordaje (HU-ENTR-2-003)
+   const [programmings, setProgrammings] = useState<any[]>([]);
+   const [nodes, setNodes] = useState<any[]>([]);
+   const [selectedProg, setSelectedProg] = useState<string>('');
+   const [selectedNode, setSelectedNode] = useState<string>('');
+   const [descentNode, setDescentNode] = useState<string>('');
+   const [boardingLoading, setBoardingLoading] = useState(false);
+   const [boardingError, setBoardingError] = useState('');
+   const [boardingSuccess, setBoardingSuccess] = useState<any>(null);
+   const [activeTrip, setActiveTrip] = useState<any>(null);
+
    const isCiudadano = user?.roles?.some(r => r.toUpperCase() === 'CIUDADANO') ?? false;
+
+   // Cargar datos del simulador (programaciones y nodos)
+   useEffect(() => {
+      if (isCiudadano) {
+         const loadSimulationData = async () => {
+            try {
+               const progs = await businessService.getSchedules();
+               const nds = await businessService.getNodos();
+               setProgrammings(Array.isArray(progs) ? progs : []);
+               setNodes(Array.isArray(nds) ? nds : []);
+            } catch (err) {
+               console.error("Error loading simulation data:", err);
+            }
+         };
+         loadSimulationData();
+      }
+   }, [isCiudadano]);
+
+   // Cargar viaje activo guardado en localStorage
+   useEffect(() => {
+      if (user?.id) {
+         const savedTrip = localStorage.getItem(`active_trip_${user.id}`);
+         if (savedTrip) {
+            try {
+               setActiveTrip(JSON.parse(savedTrip));
+            } catch (e) {
+               console.error("Error parsing active trip:", e);
+            }
+         }
+      }
+   }, [user]);
+
+   // Manejador de Abordaje (board)
+   const handleBoarding = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedProg || !selectedNode) return;
+      if (!citizenData) return;
+
+      const citizenPaymentMethodId = citizenData.paymentMethods?.[0]?.id || 1;
+      
+      setBoardingLoading(true);
+      setBoardingError('');
+      setBoardingSuccess(null);
+
+      try {
+         const res = await businessService.board({
+            programmingId: Number(selectedProg),
+            citizenPaymentMethodId: Number(citizenPaymentMethodId),
+            nodoId: Number(selectedNode)
+         });
+
+         setBoardingSuccess(res);
+         
+         const activeTripInfo = {
+            ticketId: res.ticket.id,
+            codigo: res.ticket.codigo,
+            programming: programmings.find(p => p.id === Number(selectedProg)),
+            boardingNode: nodes.find(n => n.id === Number(selectedNode)),
+            timestamp: new Date().toISOString()
+         };
+         
+         setActiveTrip(activeTripInfo);
+         if (user?.id) {
+            localStorage.setItem(`active_trip_${user.id}`, JSON.stringify(activeTripInfo));
+            if (citizenData.id === 0) {
+               localStorage.setItem(`sim_balance_${user.id}`, res.saldoRestante.toString());
+            }
+         }
+
+         // Actualizar saldo de forma local e inmediata
+         setCitizenData({
+            ...citizenData,
+            paymentMethods: citizenData.paymentMethods.map((pm: any, idx: number) => 
+               idx === 0 ? { ...pm, paymentMethod: { ...pm.paymentMethod, saldo: res.saldoRestante } } : pm
+            )
+         });
+
+      } catch (err: any) {
+         setBoardingError(err?.response?.data?.message || 'Error al validar abordaje');
+      } finally {
+         setBoardingLoading(false);
+      }
+   };
+
+   // Manejador de Descenso (alight)
+   const handleAlight = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!activeTrip || !descentNode) return;
+
+      setBoardingLoading(true);
+      setBoardingError('');
+
+      try {
+         await businessService.alight({
+            ticketId: activeTrip.ticketId,
+            nodoId: Number(descentNode)
+         });
+
+         setActiveTrip(null);
+         if (user?.id) {
+            localStorage.removeItem(`active_trip_${user.id}`);
+         }
+         
+         setBoardingSuccess({
+            message: 'Viaje completado - Gracias por usar nuestro servicio'
+         });
+
+         // Recargar datos actualizados
+         if (user?.id) {
+            const person = await businessService.findPersonByUserId(user.id);
+            if (person) {
+               try {
+                  const citizen = await businessService.getCitizenByPersonId(person.id);
+                  setCitizenData(citizen);
+               } catch (e) {
+                  // Mantener datos simulados
+               }
+            }
+         }
+
+      } catch (err: any) {
+         setBoardingError(err?.response?.data?.message || 'Error al registrar descenso');
+      } finally {
+         setBoardingLoading(false);
+      }
+   };
 
    useEffect(() => {
       const fetchCitizen = async () => {
@@ -273,6 +411,173 @@ export const CiudadanoDashboard: React.FC = () => {
                            ))}
                         </div>
                      </div>
+                  </section>
+
+                  {/* Boarding & Ticket Generation Simulator (HU-ENTR-2-003) */}
+                  <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
+                     
+                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+                        <div>
+                           <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                              <Navigation className="h-7 w-7 text-blue-600 animate-pulse" />
+                              Simulador de Viaje y Boletería (HU-ENTR-2-003)
+                           </h2>
+                           <p className="text-gray-500 text-sm mt-1">Valida tu método de pago para abordar el bus y generar tu boleto en tiempo real.</p>
+                        </div>
+                        {activeTrip && (
+                           <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-1.5 rounded-full text-xs font-bold text-blue-700 uppercase tracking-wide">
+                              <span className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
+                              Viaje Activo
+                           </div>
+                        )}
+                     </div>
+
+                     {boardingError && (
+                        <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                           <AlertCircle className="h-5 w-5 text-red-500" />
+                           <p className="text-red-700 font-semibold">{boardingError}</p>
+                        </div>
+                     )}
+
+                     {boardingSuccess && !activeTrip && (
+                        <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                           <CheckCircle className="h-5 w-5 text-green-500" />
+                           <div>
+                              <p className="text-green-800 font-bold">{boardingSuccess.message}</p>
+                              {boardingSuccess.saldoRestante !== undefined && (
+                                 <p className="text-green-700 text-sm font-medium">Saldo restante: ${Number(boardingSuccess.saldoRestante).toLocaleString()} COP</p>
+                              )}
+                           </div>
+                        </div>
+                     )}
+
+                     {!activeTrip ? (
+                        /* Boarding Form */
+                        <form onSubmit={handleBoarding} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                           <div className="md:col-span-5 space-y-2">
+                              <label className="text-sm font-bold text-gray-700 block">1. Selecciona el Bus en Progreso</label>
+                              <select 
+                                 required
+                                 value={selectedProg}
+                                 onChange={(e) => setSelectedProg(e.target.value)}
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 shadow-inner"
+                              >
+                                 <option value="">-- Seleccionar Bus y Ruta --</option>
+                                 {programmings.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                       {p.bus?.placa || 'N/A'} - {p.route?.nombre || 'Ruta General'} (Programación #{p.id})
+                                    </option>
+                                 ))}
+                              </select>
+                           </div>
+
+                           <div className="md:col-span-5 space-y-2">
+                              <label className="text-sm font-bold text-gray-700 block">2. Paradero de Abordaje</label>
+                              <select 
+                                 required
+                                 value={selectedNode}
+                                 onChange={(e) => setSelectedNode(e.target.value)}
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 shadow-inner"
+                              >
+                                 <option value="">-- Seleccionar Parada --</option>
+                                 {nodes.map((n) => (
+                                    <option key={n.id} value={n.id}>
+                                       {n.stop?.nombre || `Parada #${n.id}`} ({n.stop?.direccion || 'Sin dirección'})
+                                    </option>
+                                 ))}
+                              </select>
+                           </div>
+
+                           <div className="md:col-span-2">
+                              <button
+                                 type="submit"
+                                 disabled={boardingLoading}
+                                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-4 rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-xs"
+                              >
+                                 {boardingLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                 ) : (
+                                    <Zap className="h-4 w-4 fill-current text-yellow-300" />
+                                 )}
+                                 Abordar Bus
+                              </button>
+                           </div>
+                        </form>
+                     ) : (
+                        /* Alighting Form (Active Trip Progress) */
+                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md border border-slate-700 animate-in fade-in zoom-in-95">
+                           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                              
+                              <div className="lg:col-span-6 space-y-4">
+                                 <div className="flex items-center gap-3">
+                                    <div className="bg-blue-600 p-3 rounded-xl">
+                                       <Bus className="h-6 w-6 text-white animate-bounce" />
+                                    </div>
+                                    <div>
+                                       <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">Viaje en progreso</p>
+                                       <h3 className="text-xl font-black text-white">Boleto #{activeTrip.codigo}</h3>
+                                    </div>
+                                 </div>
+                                 
+                                 <div className="grid grid-cols-2 gap-4 text-sm pt-2">
+                                    <div>
+                                       <p className="text-slate-400 text-xs font-semibold">Bus Asignado</p>
+                                       <p className="font-bold text-slate-200">{activeTrip.programming?.bus?.placa || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                       <p className="text-slate-400 text-xs font-semibold">Ruta</p>
+                                       <p className="font-bold text-slate-200">{activeTrip.programming?.route?.nombre || 'Ruta Activa'}</p>
+                                    </div>
+                                    <div>
+                                       <p className="text-slate-400 text-xs font-semibold">Abordado en</p>
+                                       <p className="font-bold text-slate-200">{activeTrip.boardingNode?.stop?.nombre || 'Paradero inicial'}</p>
+                                    </div>
+                                    <div>
+                                       <p className="text-slate-400 text-xs font-semibold">Hora de Abordaje</p>
+                                       <p className="font-bold text-slate-200">{new Date(activeTrip.timestamp).toLocaleTimeString()}</p>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="lg:col-span-1 hidden lg:flex justify-center">
+                                 <ArrowRight className="h-8 w-8 text-slate-600 animate-pulse" />
+                              </div>
+
+                              <form onSubmit={handleAlight} className="lg:col-span-5 space-y-4">
+                                 <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-300 block">Registrar Descenso (Alight)</label>
+                                    <select 
+                                       required
+                                       value={descentNode}
+                                       onChange={(e) => setDescentNode(e.target.value)}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-900/30 focus:border-blue-500 outline-none transition-all font-medium text-slate-200"
+                                    >
+                                       <option value="">-- Seleccionar Paradero de Descenso --</option>
+                                       {nodes.map((n) => (
+                                          <option key={n.id} value={n.id}>
+                                             {n.stop?.nombre || `Parada #${n.id}`} ({n.stop?.direccion || 'Sin dirección'})
+                                          </option>
+                                       ))}
+                                    </select>
+                                 </div>
+                                 
+                                 <button
+                                    type="submit"
+                                    disabled={boardingLoading}
+                                    className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-black py-4 rounded-xl shadow-lg shadow-green-950 hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-xs"
+                                 >
+                                    {boardingLoading ? (
+                                       <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                       <CheckCircle className="h-4 w-4" />
+                                    )}
+                                    Bajar del Bus
+                                 </button>
+                              </form>
+                           </div>
+                        </div>
+                     )}
                   </section>
 
                   {/* Promotions & Tips Section */}

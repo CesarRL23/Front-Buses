@@ -324,8 +324,23 @@ export const businessService = {
     return response.data;
   },
 
+  endShift: async (id: number) => {
+    const response = await businessApi.patch(`/shift/${id}/end`);
+    return response.data;
+  },
+
   getTripDetails: async (ticketId: number) => {
     const response = await businessApi.get(`/ticket/${ticketId}/trip-details`);
+    return response.data;
+  },
+
+  board: async (data: { programmingId: number; citizenPaymentMethodId: number; nodoId: number }) => {
+    const response = await businessApi.post('/ticket/board', data);
+    return response.data;
+  },
+
+  alight: async (data: { ticketId: number; nodoId: number }) => {
+    const response = await businessApi.post('/ticket/alight', data);
     return response.data;
   },
 

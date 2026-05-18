@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   Calendar
 } from 'lucide-react';
+import QRCode from 'qrcode';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Route {
@@ -91,6 +92,9 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showBusQr, setShowBusQr] = useState(false);
+  const [busQrDataUrl, setBusQrDataUrl] = useState<string | null>(null);
+  const [createdBusInfo, setCreatedBusInfo] = useState<BusRecord | null>(null);
 
   // Forms
   const [showRouteForm, setShowRouteForm] = useState(false);
@@ -357,14 +361,46 @@ export const AdminEmpresaDashboard: React.FC = () => {
     e.preventDefault();
     if (!selectedCompanyId) return;
     setActionLoading(true);
+    // Validaciones de campos
+    if (!busForm.placa || busForm.placa.trim().length < 5) {
+      setError('Placa inválida. Debe tener al menos 5 caracteres.');
+      setActionLoading(false);
+      return;
+    }
+    if (!busForm.modelo || busForm.modelo.trim().length < 2) {
+      setError('Modelo inválido.');
+      setActionLoading(false);
+      return;
+    }
+    if (!busForm.marca || busForm.marca.trim().length < 2) {
+      setError('Marca inválida.');
+      setActionLoading(false);
+      return;
+    }
+    if (!busForm.capacidad || Number(busForm.capacidad) <= 0) {
+      setError('Capacidad inválida. Debe ser mayor a 0.');
+      setActionLoading(false);
+      return;
+    }
+    setError('');
     try {
       const payload = { ...busForm, companyId: selectedCompanyId };
       if (editingBus) {
         await businessService.updateBus(editingBus.id, payload);
         setSuccess('Bus actualizado correctamente');
       } else {
-        await businessService.createBus(payload);
+        const created = await businessService.createBus(payload);
         setSuccess('Bus registrado correctamente');
+        // Generar QR con información de verificación para el bus creado
+        try {
+          const qrPayload = JSON.stringify({ type: 'bus', id: created?.id, placa: created?.placa, companyId: selectedCompanyId });
+          const dataUrl = await QRCode.toDataURL(qrPayload, { errorCorrectionLevel: 'H' });
+          setBusQrDataUrl(dataUrl);
+          setCreatedBusInfo(created);
+          setShowBusQr(true);
+        } catch (qrErr) {
+          console.error('QR generation failed', qrErr);
+        }
       }
       setShowBusForm(false);
       setEditingBus(null);
@@ -805,6 +841,36 @@ export const AdminEmpresaDashboard: React.FC = () => {
               </>
             )}
 
+            {/* QR Modal */}
+            {showBusQr && busQrDataUrl && createdBusInfo && (
+              <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60">
+                <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-xl font-black">QR de verificación - Bus creado</h3>
+                    <button onClick={() => setShowBusQr(false)} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5 text-gray-600" /></button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                    <div className="flex items-center justify-center">
+                      <img src={busQrDataUrl} alt="QR Bus" className="w-48 h-48 p-2 bg-white border rounded-md" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-500">ID: <span className="font-bold text-gray-800">{createdBusInfo.id}</span></p>
+                      <p className="text-sm text-gray-500">Placa: <span className="font-bold text-gray-800">{createdBusInfo.placa}</span></p>
+                      <p className="text-sm text-gray-500">Marca: <span className="font-bold text-gray-800">{createdBusInfo.marca}</span></p>
+                      <p className="text-sm text-gray-500">Modelo: <span className="font-bold text-gray-800">{createdBusInfo.modelo}</span></p>
+                      <p className="text-sm text-gray-500">Capacidad: <span className="font-bold text-gray-800">{createdBusInfo.capacidad}</span></p>
+
+                      <div className="mt-4 flex gap-2">
+                        <a href={busQrDataUrl} download={`bus-${createdBusInfo.id}-qr.png`} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold">Descargar QR</a>
+                        <button onClick={() => setShowBusQr(false)} className="px-4 py-2 bg-gray-100 rounded-xl font-bold">Cerrar</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ══════════════════════════════════════════
                 BUSES SECTION
             ══════════════════════════════════════════ */}
@@ -993,3 +1059,5 @@ export const AdminEmpresaDashboard: React.FC = () => {
     </div>
   );
 };
+
+// QR Modal fuera del componente principal si es necesario

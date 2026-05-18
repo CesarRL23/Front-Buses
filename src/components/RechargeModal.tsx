@@ -105,6 +105,34 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose, o
       }
    };
 
+   const handleDirectSimulatedRecharge = async () => {
+      if (amount < 5000 || amount > 500000) {
+         setError('El monto debe estar entre $5,000 y $500,000');
+         return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+         const paymentMethodId = citizen.paymentMethods?.[0]?.paymentMethod?.id;
+         
+         if (citizen.id !== 0 && paymentMethodId) {
+            // Recargar saldo en el backend real de forma persistente
+            const res = await businessService.recharge(Number(paymentMethodId), Number(amount));
+            onSuccess(Number(res.saldo));
+         } else {
+            // Recargar de forma simulada
+            onSuccess(newBalance);
+         }
+         onClose();
+      } catch (err: any) {
+         setError('Error al procesar la recarga simulada');
+      } finally {
+         setLoading(false);
+      }
+   };
+
    if (!isOpen) return null;
 
    return (
@@ -218,6 +246,19 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose, o
                      <>
                         Continuar al Pago
                         <TrendingUp className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                     </>
+                  )}
+               </button>
+               <button
+                  onClick={handleDirectSimulatedRecharge}
+                  disabled={loading || amount < 5000}
+                  className="w-full mt-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-black py-4 rounded-2xl shadow-xl shadow-green-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+               >
+                  {loading ? (
+                     <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                     <>
+                        Simular Recarga Instantánea
                      </>
                   )}
                </button>

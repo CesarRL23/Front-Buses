@@ -37,6 +37,7 @@ export const CiudadanoDashboard: React.FC = () => {
    const [isRechargeOpen, setIsRechargeOpen] = useState(false);
    const [citizenData, setCitizenData] = useState<any>(null);
    const [loading, setLoading] = useState(true);
+   const [recentTrips, setRecentTrips] = useState<any[]>([]);
 
    // Estados del Simulador de Abordaje (HU-ENTR-2-003)
    const [programmings, setProgrammings] = useState<any[]>([]);
@@ -186,6 +187,46 @@ export const CiudadanoDashboard: React.FC = () => {
                   try {
                      const citizen = await businessService.getCitizenByPersonId(person.id);
                      setCitizenData(citizen);
+
+                     // Cargar viajes reales del ciudadano desde el backend
+                     try {
+                        const tickets = await businessService.getTickets();
+                        if (Array.isArray(tickets)) {
+                           const citizenPmIds = citizen.paymentMethods?.map((pm: any) => pm.id) || [];
+                           const citizenTickets = tickets.filter((t: any) => 
+                              t.citizenPaymentMethodId && citizenPmIds.includes(t.citizenPaymentMethodId)
+                           );
+
+                           const formattedTrips = citizenTickets.map((t: any) => {
+                              const routeName = t.programming?.route?.nombre || 'Ruta sin nombre';
+                              const busPlate = t.programming?.bus?.placa || 'Bus';
+                              const date = t.FechaUso ? new Date(t.FechaUso) : new Date(t.fechaCompra);
+                              
+                              return {
+                                 id: String(t.id),
+                                 title: `${routeName}`,
+                                 description: `Viaje ${t.estado === 'ACTIVO' ? 'en progreso' : 'completado'} • Bus Placa ${busPlate}`,
+                                 timestamp: date.toLocaleString('es-CO', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                 }),
+                                 icon: CheckCircle,
+                                 color: t.estado === 'ACTIVO' ? 'blue' : 'green',
+                                 actionLabel: 'Ver Detalle',
+                                 onAction: () => setSelectedTripId(t.id)
+                              };
+                           });
+
+                           formattedTrips.sort((a: any, b: any) => Number(b.id) - Number(a.id));
+                           setRecentTrips(formattedTrips);
+                        }
+                     } catch (err) {
+                        console.error("Error loading real tickets:", err);
+                     }
                   } catch (e) {
                      // Si no existe el ciudadano, usamos uno simulado persistente en localStorage
                      const savedBalance = localStorage.getItem(`sim_balance_${user.id}`) || "0";
@@ -197,6 +238,7 @@ export const CiudadanoDashboard: React.FC = () => {
                            paymentMethod: { id: 0, saldo: Number(savedBalance), type: 'CARD' }
                         }]
                      });
+                     setRecentTrips([]);
                   }
                }
             } catch (error) {
@@ -208,19 +250,55 @@ export const CiudadanoDashboard: React.FC = () => {
       };
       fetchCitizen();
 
-      // Verificar si venimos de una recarga exitosa de ePayco (simulación por URL)
+      // Verificar si venimos de una recarga exitosa de ePayco (URL callback con referencia)
       const params = new URLSearchParams(window.location.search);
-      if (params.get('ref_payco') || params.get('success')) {
-         const pendingAmount = localStorage.getItem('pending_recharge_amount');
-         if (pendingAmount && isCiudadano && user?.id) {
-            const currentSimBalance = Number(localStorage.getItem(`sim_balance_${user.id}`) || "0");
-            const newSimBalance = currentSimBalance + Number(pendingAmount);
-            localStorage.setItem(`sim_balance_${user.id}`, newSimBalance.toString());
-            localStorage.removeItem('pending_recharge_amount');
-            
-            // Limpiar la URL para evitar recargas dobles al refrescar
-            window.history.replaceState({}, document.title, window.location.pathname);
+      const refPayco = params.get('ref_payco');
+      if (refPayco) {
+         if (isCiudadano && user?.id) {
+            const processRecharge = async () => {
+               try {
+                  const person = await businessService.findPersonByUserId(user.id);
+                  if (person) {
+                     try {
+                        const citizen = await businessService.getCitizenByPersonId(person.id);
+                        const paymentMethodId = citizen?.paymentMethods?.[0]?.paymentMethod?.id;
+                        if (paymentMethodId && citizen.id !== 0) {
+                           // Validar y registrar de forma REAL la transacción con el backend y ePayco
+                           await businessService.confirmRecharge(refPayco);
+                        } else {
+                           // Fallback a saldo simulado si el ciudadano real no tiene método de pago asociado
+                           const pendingAmount = localStorage.getItem('pending_recharge_amount');
+                           if (pendingAmount) {
+                              const currentSimBalance = Number(localStorage.getItem(`sim_balance_${user.id}`) || "0");
+                              const newSimBalance = currentSimBalance + Number(pendingAmount);
+                              localStorage.setItem(`sim_balance_${user.id}`, newSimBalance.toString());
+                           }
+                        }
+                     } catch (e) {
+                        // Fallback a saldo simulado si el ciudadano no existe en la base de datos de negocio
+                        const pendingAmount = localStorage.getItem('pending_recharge_amount');
+                        if (pendingAmount) {
+                           const currentSimBalance = Number(localStorage.getItem(`sim_balance_${user.id}`) || "0");
+                           const newSimBalance = currentSimBalance + Number(pendingAmount);
+                           localStorage.setItem(`sim_balance_${user.id}`, newSimBalance.toString());
+                        }
+                     }
+                  }
+               } catch (err) {
+                  console.error("Error processing real ePayco recharge:", err);
+               } finally {
+                  localStorage.removeItem('pending_recharge_amount');
+                  // Limpiar la URL para evitar recargas dobles al refrescar
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                  // Recargar los datos reales para actualizar la tarjeta digital al instante
+                  fetchCitizen();
+               }
+            };
+            processRecharge();
+         } else {
+            fetchCitizen();
          }
+      } else if (params.get('success')) {
          fetchCitizen();
       }
    }, [user, isCiudadano]);
@@ -643,36 +721,8 @@ export const CiudadanoDashboard: React.FC = () => {
                      </div>
                      <ActivityFeed
                         title=""
-                        activities={[
-                           {
-                              id: '1',
-                              title: 'Centro - Uninorte',
-                              description: 'Viaje completado • Bus #045',
-                              timestamp: 'Hoy, 14:30',
-                              icon: CheckCircle,
-                              color: 'green',
-                              actionLabel: 'Repetir ruta',
-                           },
-                           {
-                              id: '2', // Pasaremos el ID del ticket acá
-                              title: 'Kra 5 - Zona Rosa',
-                              description: 'Viaje completado • Bus #028',
-                              timestamp: 'Ayer, 09:15',
-                              icon: CheckCircle,
-                              color: 'green',
-                              actionLabel: 'Ver Detalle',
-                              onAction: () => setSelectedTripId(2)
-                           },
-                           {
-                              id: '3',
-                              title: 'Terminal - Casa',
-                              description: 'Viaje completado • Bus #056',
-                              timestamp: 'Hace 2 días',
-                              icon: CheckCircle,
-                              color: 'green',
-                           },
-                        ]}
-                        emptyMessage="No hay viajes recientes"
+                        activities={recentTrips}
+                        emptyMessage="No tienes viajes registrados recientemente"
                      />
 
                      {/* Modal de Detalles del Viaje */}

@@ -329,6 +329,11 @@ export const businessService = {
     return response.data;
   },
 
+  getTickets: async () => {
+    const response = await businessApi.get('/ticket');
+    return response.data;
+  },
+
   getTripDetails: async (ticketId: number) => {
     const response = await businessApi.get(`/ticket/${ticketId}/trip-details`);
     return response.data;
@@ -341,6 +346,16 @@ export const businessService = {
 
   alight: async (data: { ticketId: number; nodoId: number }) => {
     const response = await businessApi.post('/ticket/alight', data);
+    return response.data;
+  },
+
+  recharge: async (paymentMethodId: number, amount: number) => {
+    const response = await businessApi.post(`/payment-method/${paymentMethodId}/recharge`, { amount });
+    return response.data;
+  },
+
+  confirmRecharge: async (refPayco: string) => {
+    const response = await businessApi.post('/payment-method/confirmation', { x_ref_payco: refPayco });
     return response.data;
   },
 

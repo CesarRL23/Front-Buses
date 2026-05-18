@@ -347,5 +347,52 @@ export const businessService = {
       `/incidente/driver/${driverId}/history?limit=${limit}`,
     );
     return response.data;
-  }
+  },
+
+  /** HU-ENTR-2-008: Get all incidents for a bus with optional filters + statistics */
+  getBusIncidents: async (busId: number, tipo?: string, estado?: string) => {
+    const params = new URLSearchParams();
+    if (tipo) params.append('tipo', tipo);
+    if (estado) params.append('estado', estado);
+    const qs = params.toString();
+    const response = await businessApi.get(
+      `/incidente/bus/${busId}${qs ? `?${qs}` : ''}`,
+    );
+    return response.data as {
+      incidentes: any[];
+      estadisticas: {
+        total: number;
+        porTipo: Record<string, number>;
+        porEstado: Record<string, number>;
+        tasaResolucion: number;
+      };
+    };
+  },
+
+  /** HU-ENTR-2-008: Change the status of an incident */
+  changeIncidenteEstado: async (incidenteId: number, estado: string) => {
+    const response = await businessApi.patch(`/incidente/${incidenteId}/estado`, { estado });
+    return response.data;
+  },
+
+  /** HU-ENTR-2-008: Add a follow-up comment to an incident */
+  addIncidenteComentario: async (incidenteId: number, autor: string, texto: string) => {
+    const response = await businessApi.post(`/incidente/${incidenteId}/comentario`, { autor, texto });
+    return response.data;
+  },
+
+  /** HU-ENTR-2-016: Get time evolution of incidents by type over the last year */
+  getIncidentTrends: async (companyId?: number) => {
+    const qs = companyId ? `?companyId=${companyId}` : '';
+    const response = await businessApi.get(`/incidente/trends${qs}`);
+    return response.data as Array<{
+      mes: string;
+      mecanico: number;
+      accidente: number;
+      retraso: number;
+      pasajeros: number;
+      otro: number;
+    }>;
+  },
 };
+

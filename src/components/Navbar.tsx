@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Bus, LogOut, User, Shield, ChevronDown, LayoutDashboard, MapPin, Building, ArrowRight, Bell, Search } from 'lucide-react';
+import { Bus, LogOut, User, Shield, ChevronDown, LayoutDashboard, MapPin, Building, ArrowRight, Bell, Search, TrendingUp } from 'lucide-react';
 import { adminService } from '../services/adminService';
 
 // Configuración de metadatos por rol para el menú
@@ -54,6 +54,83 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     title: 'Admin Empresa',
     desc: 'Gestión de rutas y buses',
     color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
+  },
+  'GERENTE': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE OPERACION': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE_OPERACION': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTEOPERACION': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE DE OPERACION': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE_DE_OPERACION': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE DE OPERACIONES': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE_DE_OPERACIONES': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE OPERACIONES': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTE_OPERACIONES': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'GERENTEOPERACIONES': {
+    path: '/gerente',
+    icon: TrendingUp,
+    title: 'Gerente Operaciones',
+    desc: 'Tendencias e informes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
   }
 };
 

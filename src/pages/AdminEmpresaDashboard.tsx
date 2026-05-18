@@ -4,6 +4,7 @@ import { Navbar } from '../components/Navbar';
 import { businessService } from '../services/businessService';
 import { calculateDistance } from '../services/stopService';
 import { RouteScheduleManager } from '../components/RouteScheduleManager';
+import { BusIncidentesPanel } from '../components/BusIncidentesPanel';
 import {
   Bus,
   Route as RouteIcon,
@@ -19,6 +20,7 @@ import {
   Clock,
   DollarSign,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Navigation,
   CheckCircle2,
@@ -80,7 +82,8 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const { user } = useAuth();
   
   // State
-  const [activeTab, setActiveTab] = useState<'routes' | 'buses' | 'schedules'>('routes');
+  const [activeTab, setActiveTab] = useState<'routes' | 'buses' | 'schedules' | 'incidentes'>('routes');
+  const [selectedBusForIncidents, setSelectedBusForIncidents] = useState<{ id: number; placa: string } | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [whereabouts, setWhereabouts] = useState<Whereabout[]>([]);
@@ -519,6 +522,17 @@ export const AdminEmpresaDashboard: React.FC = () => {
           >
             <Calendar className="h-5 w-5" />
             Programación
+          </button>
+          <button
+            onClick={() => setActiveTab('incidentes')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
+              activeTab === 'incidentes' 
+                ? 'bg-white text-orange-600 shadow-sm' 
+                : 'text-gray-500 hover:bg-white/50'
+            }`}
+          >
+            <AlertTriangle className="h-5 w-5" />
+            Incidentes
           </button>
         </div>
 
@@ -1021,6 +1035,13 @@ export const AdminEmpresaDashboard: React.FC = () => {
                             </td>
                             <td className="px-8 py-5 text-right">
                               <div className="flex justify-end gap-2">
+                                <button
+                                  title="Ver incidentes"
+                                  onClick={() => { setSelectedBusForIncidents({ id: bus.id, placa: bus.placa }); setActiveTab('incidentes'); }}
+                                  className="p-2 hover:bg-orange-50 rounded-lg text-orange-500 transition"
+                                >
+                                  <AlertTriangle className="h-4 w-4" />
+                                </button>
                                 <button onClick={() => startEditBus(bus)} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition"><Pencil className="h-4 w-4" /></button>
                                 <button onClick={() => deleteBus(bus.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition"><Trash2 className="h-4 w-4" /></button>
                               </div>
@@ -1046,6 +1067,57 @@ export const AdminEmpresaDashboard: React.FC = () => {
             ══════════════════════════════════════════ */}
             {activeTab === 'schedules' && selectedCompanyId && (
               <RouteScheduleManager companyId={selectedCompanyId} />
+            )}
+
+            {/* ══════════════════════════════════════════
+                INCIDENTES SECTION — HU-ENTR-2-008
+            ══════════════════════════════════════════ */}
+            {activeTab === 'incidentes' && (
+              <div className="space-y-6">
+                {/* Bus selector */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wide mb-3">
+                    Seleccionar bus para consultar incidentes
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    {buses.map((bus) => (
+                      <button
+                        key={bus.id}
+                        id={`select-bus-incidents-${bus.id}`}
+                        onClick={() => setSelectedBusForIncidents({ id: bus.id, placa: bus.placa })}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-sm transition ${
+                          selectedBusForIncidents?.id === bus.id
+                            ? 'bg-orange-600 text-white border-orange-600 shadow-md shadow-orange-100'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'
+                        }`}
+                      >
+                        <Bus className="h-4 w-4" />
+                        {bus.placa}
+                        <span className="text-[10px] opacity-70">{bus.marca}</span>
+                      </button>
+                    ))}
+                    {buses.length === 0 && (
+                      <p className="text-sm text-gray-400 font-medium py-2">
+                        No hay buses registrados. Ve a la pestaña Buses para agregar uno.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedBusForIncidents ? (
+                  <BusIncidentesPanel
+                    busId={selectedBusForIncidents.id}
+                    busPlaca={selectedBusForIncidents.placa}
+                    currentUserName={user?.name || user?.email || 'Admin'}
+                  />
+                ) : (
+                  <div className="bg-white rounded-3xl border-2 border-dashed border-gray-200 py-20 flex flex-col items-center gap-3">
+                    <AlertTriangle className="h-14 w-14 text-gray-200" />
+                    <p className="text-gray-400 font-bold text-lg">Selecciona un bus para ver sus incidentes</p>
+                    <p className="text-gray-300 text-sm">Elige un bus de la lista superior o usa el botón ▲ en la tabla de flota</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

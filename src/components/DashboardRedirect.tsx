@@ -12,6 +12,8 @@ export const DashboardRedirect: React.FC = () => {
     const roles = (user?.roles || []).map((r: string) => r.toUpperCase());
     if (roles.includes('CIUDADANO')) {
       navigate('/ciudadano', { replace: true });
+    } else if (roles.includes('GERENTE_OPERACIONES') || roles.includes('GERENTE')) {
+      navigate('/gerente', { replace: true });
     } else {
       // stay on the central dashboard
       // no navigation here; Dashboard component will render below
@@ -21,7 +23,7 @@ export const DashboardRedirect: React.FC = () => {
   if (isLoading) return null;
 
   const roles = (user?.roles || []).map((r: string) => r.toUpperCase());
-  if (roles.includes('CIUDADANO')) return null; // already redirected
+  if (roles.includes('CIUDADANO') || roles.includes('GERENTE_OPERACIONES') || roles.includes('GERENTE')) return null; // already redirected
 
   return <Dashboard />;
 };

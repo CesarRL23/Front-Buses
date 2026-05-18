@@ -88,6 +88,15 @@ export const AppRoutes: React.FC = () => {
           }
         />
 
+        <Route
+          path="/gerente"
+          element={
+            <PrivateRoute>
+              <SupervisorDashboard />
+            </PrivateRoute>
+          }
+        />
+
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

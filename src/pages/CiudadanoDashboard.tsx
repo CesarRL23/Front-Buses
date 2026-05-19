@@ -21,12 +21,14 @@ import {
    Zap,
    ArrowRight,
    Loader2,
+   Sparkles,
 } from 'lucide-react';
 import { RoutesExplorer } from '../components/RoutesExplorer';
 import { NearestStops } from '../components/NearestStops';
 import { StatsCard, MetricBadge, ActivityFeed, QuickActionButton, EmptyState } from '../components/DashboardComponents';
 import { TripDetailsModal } from '../components/TripDetailsModal';
 import { RechargeModal } from '../components/RechargeModal';
+import { AssociatePaymentMethodModal } from '../components/AssociatePaymentMethodModal';
 import { businessService } from '../services/businessService';
 import { useEffect } from 'react';
 
@@ -35,6 +37,8 @@ export const CiudadanoDashboard: React.FC = () => {
    const [showRoutes, setShowRoutes] = useState(false);
    const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
    const [isRechargeOpen, setIsRechargeOpen] = useState(false);
+   const [isAssociateOpen, setIsAssociateOpen] = useState(false);
+   const [personData, setPersonData] = useState<any>(null);
    const [citizenData, setCitizenData] = useState<any>(null);
    const [loading, setLoading] = useState(true);
    const [recentTrips, setRecentTrips] = useState<any[]>([]);
@@ -178,76 +182,74 @@ export const CiudadanoDashboard: React.FC = () => {
       }
    };
 
-   useEffect(() => {
-      const fetchCitizen = async () => {
-         if (user?.id && isCiudadano) {
-            try {
-               const person = await businessService.findPersonByUserId(user.id);
-               if (person) {
+   const fetchCitizen = async () => {
+      if (user?.id && isCiudadano) {
+         try {
+            const person = await businessService.findPersonByUserId(user.id);
+            if (person) {
+               setPersonData(person);
+               try {
+                  const citizen = await businessService.getCitizenByPersonId(person.id);
+                  setCitizenData(citizen);
+
+                  // Cargar viajes reales del ciudadano desde el backend
                   try {
-                     const citizen = await businessService.getCitizenByPersonId(person.id);
-                     setCitizenData(citizen);
+                     const tickets = await businessService.getTickets();
+                     if (Array.isArray(tickets)) {
+                        const citizenPmIds = citizen.paymentMethods?.map((pm: any) => pm.id) || [];
+                        const citizenTickets = tickets.filter((t: any) => 
+                           t.citizenPaymentMethodId && citizenPmIds.includes(t.citizenPaymentMethodId)
+                        );
 
-                     // Cargar viajes reales del ciudadano desde el backend
-                     try {
-                        const tickets = await businessService.getTickets();
-                        if (Array.isArray(tickets)) {
-                           const citizenPmIds = citizen.paymentMethods?.map((pm: any) => pm.id) || [];
-                           const citizenTickets = tickets.filter((t: any) => 
-                              t.citizenPaymentMethodId && citizenPmIds.includes(t.citizenPaymentMethodId)
-                           );
+                        const formattedTrips = citizenTickets.map((t: any) => {
+                           const routeName = t.programming?.route?.nombre || 'Ruta sin nombre';
+                           const busPlate = t.programming?.bus?.placa || 'Bus';
+                           const date = t.FechaUso ? new Date(t.FechaUso) : new Date(t.fechaCompra);
+                           
+                           return {
+                              id: String(t.id),
+                              title: `${routeName}`,
+                              description: `Viaje ${t.estado === 'ACTIVO' ? 'en progreso' : 'completado'} • Bus Placa ${busPlate}`,
+                              timestamp: date.toLocaleString('es-CO', {
+                                 day: '2-digit',
+                                 month: '2-digit',
+                                 year: 'numeric',
+                                 hour: '2-digit',
+                                 minute: '2-digit',
+                                 hour12: true
+                              }),
+                              icon: CheckCircle,
+                              color: t.estado === 'ACTIVO' ? 'blue' : 'green',
+                              actionLabel: 'Ver Detalle',
+                              onAction: () => setSelectedTripId(t.id)
+                           };
+                        });
 
-                           const formattedTrips = citizenTickets.map((t: any) => {
-                              const routeName = t.programming?.route?.nombre || 'Ruta sin nombre';
-                              const busPlate = t.programming?.bus?.placa || 'Bus';
-                              const date = t.FechaUso ? new Date(t.FechaUso) : new Date(t.fechaCompra);
-                              
-                              return {
-                                 id: String(t.id),
-                                 title: `${routeName}`,
-                                 description: `Viaje ${t.estado === 'ACTIVO' ? 'en progreso' : 'completado'} • Bus Placa ${busPlate}`,
-                                 timestamp: date.toLocaleString('es-CO', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: true
-                                 }),
-                                 icon: CheckCircle,
-                                 color: t.estado === 'ACTIVO' ? 'blue' : 'green',
-                                 actionLabel: 'Ver Detalle',
-                                 onAction: () => setSelectedTripId(t.id)
-                              };
-                           });
-
-                           formattedTrips.sort((a: any, b: any) => Number(b.id) - Number(a.id));
-                           setRecentTrips(formattedTrips);
-                        }
-                     } catch (err) {
-                        console.error("Error loading real tickets:", err);
+                        formattedTrips.sort((a: any, b: any) => Number(b.id) - Number(a.id));
+                        setRecentTrips(formattedTrips);
                      }
-                  } catch (e) {
-                     // Si no existe el ciudadano, usamos uno simulado persistente en localStorage
-                     const savedBalance = localStorage.getItem(`sim_balance_${user.id}`) || "0";
-                     setCitizenData({
-                        id: 0,
-                        person: person,
-                        paymentMethods: [{
-                           id: 0,
-                           paymentMethod: { id: 0, saldo: Number(savedBalance), type: 'CARD' }
-                        }]
-                     });
-                     setRecentTrips([]);
+                  } catch (err) {
+                     console.error("Error loading real tickets:", err);
                   }
+               } catch (e) {
+                  // Si no existe el ciudadano, lo dejamos inicializado con sus datos de persona pero sin tarjeta
+                  setCitizenData({
+                     id: 0,
+                     person: person,
+                     paymentMethods: []
+                  });
+                  setRecentTrips([]);
                }
-            } catch (error) {
-               console.error("Error fetching citizen data:", error);
-            } finally {
-               setLoading(false);
             }
+         } catch (error) {
+            console.error("Error fetching citizen data:", error);
+         } finally {
+            setLoading(false);
          }
-      };
+      }
+   };
+
+   useEffect(() => {
       fetchCitizen();
 
       // Verificar si venimos de una recarga exitosa de ePayco (URL callback con referencia)
@@ -303,11 +305,61 @@ export const CiudadanoDashboard: React.FC = () => {
       }
    }, [user, isCiudadano]);
 
-   const balance = citizenData?.paymentMethods?.[0]?.paymentMethod?.saldo !== undefined
-      ? `$ ${Number(citizenData.paymentMethods[0].paymentMethod.saldo).toLocaleString()} COP`
+   const hasPaymentMethod = citizenData && citizenData.id !== 0 && citizenData.paymentMethods && citizenData.paymentMethods.length > 0;
+   const activePaymentMethod = hasPaymentMethod ? citizenData.paymentMethods[0] : null;
+
+   const balance = activePaymentMethod?.paymentMethod?.saldo !== undefined
+      ? `$ ${Number(activePaymentMethod.paymentMethod.saldo).toLocaleString()} COP`
       : loading 
          ? 'Cargando...' 
-         : '$ 0 COP (Simulado)';
+         : '$ 0 COP';
+
+   const getCardTheme = (prov?: string) => {
+      switch (prov) {
+         case 'SMART_CARD':
+            return {
+               gradient: 'from-blue-900 via-indigo-800 to-purple-900',
+               label: 'Smart Bus Card',
+               sub: 'Tarjeta de Transporte',
+               logoColor: 'text-blue-300'
+            };
+         case 'VISA':
+            return {
+               gradient: 'from-slate-900 via-blue-950 to-blue-900',
+               label: 'Visa Platinum',
+               sub: 'Método de Pago Asociado',
+               logoColor: 'text-yellow-400'
+            };
+         case 'MASTERCARD':
+            return {
+               gradient: 'from-neutral-900 via-orange-950 to-red-950',
+               label: 'Mastercard Gold',
+               sub: 'Método de Pago Asociado',
+               logoColor: 'text-orange-500'
+            };
+         case 'NEQUI':
+            return {
+               gradient: 'from-[#8233ff] via-[#4d0df2] to-[#2000b0]',
+               label: 'Nequi',
+               sub: 'Monedero Digital',
+               logoColor: 'text-pink-400'
+            };
+         case 'DAVIPLATA':
+            return {
+               gradient: 'from-red-600 via-red-700 to-rose-900',
+               label: 'Daviplata',
+               sub: 'Monedero Digital',
+               logoColor: 'text-white'
+            };
+         default:
+            return {
+               gradient: 'from-blue-900 via-indigo-800 to-purple-900',
+               label: 'Smart Bus Card',
+               sub: 'Tarjeta de Transporte',
+               logoColor: 'text-blue-300'
+            };
+      }
+   };
    const favorites = [
       { id: 1, name: 'Casa - Trabajo', route: 'Ruta 02', next: '10 min', color: 'bg-blue-500' },
       { id: 2, name: 'Gimnasio', route: 'Ruta 15', next: '15 min', color: 'bg-green-500' },
@@ -385,42 +437,96 @@ export const CiudadanoDashboard: React.FC = () => {
                   {/* Featured Sections */}
                   <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                      {/* Digital Card - Balance */}
-                     <div className="lg:col-span-4 bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900 rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden group">
-                        <div className="absolute -bottom-20 -right-20 bg-white/5 w-64 h-64 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000" />
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-purple-400" />
+                      {/* Digital Card - Balance */}
+                      {hasPaymentMethod ? (
+                         (() => {
+                            const theme = getCardTheme(activePaymentMethod?.paymentMethod?.provider);
+                            const rawAcc = activePaymentMethod?.paymentMethod?.accountNumber || '';
+                            const formattedAcc = rawAcc.match(/.{1,4}/g)?.join(' ') || rawAcc;
+                            return (
+                               <div className={`lg:col-span-4 bg-gradient-to-br ${theme.gradient} rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden flex flex-col justify-between group border border-white/5`}>
+                                  <div className="absolute -bottom-20 -right-20 bg-white/5 w-64 h-64 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000 animate-pulse pointer-events-none" />
+                                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400" />
 
-                        <div className="relative z-10 flex flex-col h-full justify-between">
-                           <div className="flex justify-between items-start">
-                              <div>
-                                 <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-2 opacity-70">Tarjeta Digital</p>
-                                 <h3 className="text-2xl font-black flex items-center gap-2">
-                                    Smart Bus Card 💳
-                                 </h3>
-                              </div>
-                              <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/20 group-hover:scale-110 transition-transform">
-                                 <CreditCard className="w-6 h-6 text-blue-300" />
-                              </div>
-                           </div>
+                                  <div className="relative z-10 flex flex-col h-full justify-between">
+                                     <div className="flex justify-between items-start">
+                                        <div>
+                                           <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-1 opacity-70">{theme.sub}</p>
+                                           <h3 className="text-2xl font-black tracking-tight">
+                                              {theme.label}
+                                           </h3>
+                                        </div>
+                                        <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/20 group-hover:scale-110 transition-transform">
+                                           <CreditCard className="w-6 h-6 text-blue-300" />
+                                        </div>
+                                     </div>
 
-                           <div className="mt-12">
-                              <p className="text-blue-100 text-sm font-semibold mb-2">Saldo Disponible</p>
-                              <h2 className="text-5xl font-black mb-4">{balance}</h2>
-                              <p className="text-blue-200 text-xs">Úsalo en cualquier parada de la ciudad</p>
-                           </div>
+                                     <div className="mt-8">
+                                        <p className="text-blue-100/70 text-xs font-mono mb-2 tracking-widest bg-black/10 w-fit px-2 py-0.5 rounded">
+                                           Nº {formattedAcc}
+                                        </p>
+                                        <p className="text-blue-100 text-sm font-semibold mb-1">Saldo Disponible</p>
+                                        <h2 className="text-5xl font-black tracking-tight">{balance}</h2>
+                                     </div>
 
-                           <div className="mt-12 flex gap-3">
-                              <button 
-                                 onClick={() => setIsRechargeOpen(true)}
-                                 className="flex-1 bg-white text-blue-900 font-bold py-3 rounded-xl hover:bg-blue-50 transition-all active:scale-95 shadow-lg hover:shadow-xl text-sm uppercase tracking-wide"
-                              >
-                                 Recargar
-                              </button>
-                              <button className="bg-white/20 border border-white/30 p-3 rounded-xl hover:bg-white/30 transition-all group/btn">
-                                 <History className="w-6 h-6 text-white group-hover/btn:rotate-[-45deg] transition-transform" />
-                              </button>
-                           </div>
-                        </div>
-                     </div>
+                                     <div className="mt-8 flex gap-3">
+                                        <button 
+                                           onClick={() => setIsRechargeOpen(true)}
+                                           className="flex-1 bg-white text-blue-900 font-bold py-3.5 rounded-xl hover:bg-blue-50 transition-all active:scale-95 shadow-lg hover:shadow-xl text-xs uppercase tracking-wider"
+                                        >
+                                           Recargar
+                                        </button>
+                                        <button 
+                                           onClick={() => setIsAssociateOpen(true)}
+                                           className="bg-white/10 border border-white/20 px-4 rounded-xl hover:bg-white/20 transition-all flex items-center justify-center gap-1.5 text-xs font-bold text-white group/btn"
+                                           title="Vincular otro método"
+                                        >
+                                           <Sparkles className="w-4 h-4 text-yellow-300" /> Vincular
+                                        </button>
+                                     </div>
+                                  </div>
+                               </div>
+                            );
+                         })()
+                      ) : (
+                         /* Unassociated Card Box */
+                         <div className="lg:col-span-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden flex flex-col justify-between group border border-indigo-500/20">
+                            <div className="absolute -bottom-20 -right-20 bg-indigo-500/10 w-64 h-64 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000 pointer-events-none" />
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+
+                            <div className="relative z-10 flex flex-col h-full justify-between">
+                               <div className="flex justify-between items-start">
+                                  <div>
+                                     <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1 opacity-70">Tarjeta Digital</p>
+                                     <h3 className="text-2xl font-black flex items-center gap-2">
+                                        Sin Tarjeta 💳
+                                     </h3>
+                                  </div>
+                                  <div className="bg-white/5 backdrop-blur-md p-3 rounded-xl border border-white/10">
+                                     <CreditCard className="w-6 h-6 text-indigo-300/50" />
+                                  </div>
+                               </div>
+
+                               <div className="mt-8">
+                                  <p className="text-xs font-bold text-indigo-300 uppercase tracking-wide mb-1">Estado de Cuenta</p>
+                                  <h2 className="text-xl font-black mb-3 text-slate-200">No tienes una tarjeta o cuenta vinculada</h2>
+                                  <p className="text-slate-400 text-xs leading-relaxed">
+                                     Para recargar saldo real, simular viajes y generar boletos en tiempo real, vincula tu tarjeta de transporte o billetera digital.
+                                  </p>
+                               </div>
+
+                               <div className="mt-8">
+                                  <button 
+                                     onClick={() => setIsAssociateOpen(true)}
+                                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-4 rounded-xl shadow-lg shadow-indigo-950/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-xs"
+                                  >
+                                     <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />
+                                     Vincular Tarjeta
+                                  </button>
+                               </div>
+                            </div>
+                         </div>
+                      )}
 
                      {/* Favorites Section */}
                      <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-8 flex flex-col space-y-6">
@@ -531,57 +637,76 @@ export const CiudadanoDashboard: React.FC = () => {
                      )}
 
                      {!activeTrip ? (
-                        /* Boarding Form */
-                        <form onSubmit={handleBoarding} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-                           <div className="md:col-span-5 space-y-2">
-                              <label className="text-sm font-bold text-gray-700 block">1. Selecciona el Bus en Progreso</label>
-                              <select 
-                                 required
-                                 value={selectedProg}
-                                 onChange={(e) => setSelectedProg(e.target.value)}
-                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 shadow-inner"
-                              >
-                                 <option value="">-- Seleccionar Bus y Ruta --</option>
-                                 {programmings.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                       {p.bus?.placa || 'N/A'} - {p.route?.nombre || 'Ruta General'} (Programación #{p.id})
-                                    </option>
-                                 ))}
-                              </select>
-                           </div>
+                        hasPaymentMethod ? (
+                           /* Boarding Form */
+                           <form onSubmit={handleBoarding} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end animate-in fade-in duration-300">
+                              <div className="md:col-span-5 space-y-2">
+                                 <label className="text-sm font-bold text-gray-700 block">1. Selecciona el Bus en Progreso</label>
+                                 <select 
+                                    required
+                                    value={selectedProg}
+                                    onChange={(e) => setSelectedProg(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 shadow-inner"
+                                 >
+                                    <option value="">-- Seleccionar Bus y Ruta --</option>
+                                    {programmings.map((p) => (
+                                       <option key={p.id} value={p.id}>
+                                          {p.bus?.placa || 'N/A'} - {p.route?.nombre || 'Ruta General'} (Programación #{p.id})
+                                       </option>
+                                    ))}
+                                 </select>
+                              </div>
 
-                           <div className="md:col-span-5 space-y-2">
-                              <label className="text-sm font-bold text-gray-700 block">2. Paradero de Abordaje</label>
-                              <select 
-                                 required
-                                 value={selectedNode}
-                                 onChange={(e) => setSelectedNode(e.target.value)}
-                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 shadow-inner"
-                              >
-                                 <option value="">-- Seleccionar Parada --</option>
-                                 {nodes.map((n) => (
-                                    <option key={n.id} value={n.id}>
-                                       {n.stop?.nombre || `Parada #${n.id}`} ({n.stop?.direccion || 'Sin dirección'})
-                                    </option>
-                                 ))}
-                              </select>
-                           </div>
+                              <div className="md:col-span-5 space-y-2">
+                                 <label className="text-sm font-bold text-gray-700 block">2. Paradero de Abordaje</label>
+                                 <select 
+                                    required
+                                    value={selectedNode}
+                                    onChange={(e) => setSelectedNode(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 shadow-inner"
+                                 >
+                                    <option value="">-- Seleccionar Parada --</option>
+                                    {nodes.map((n) => (
+                                       <option key={n.id} value={n.id}>
+                                          {n.stop?.nombre || `Parada #${n.id}`} ({n.stop?.direccion || 'Sin dirección'})
+                                       </option>
+                                    ))}
+                                 </select>
+                              </div>
 
-                           <div className="md:col-span-2">
+                              <div className="md:col-span-2">
+                                 <button
+                                    type="submit"
+                                    disabled={boardingLoading}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-4 rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-xs"
+                                 >
+                                    {boardingLoading ? (
+                                       <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                       <Zap className="h-4 w-4 fill-current text-yellow-300" />
+                                    )}
+                                    Abordar Bus
+                                 </button>
+                              </div>
+                           </form>
+                        ) : (
+                           /* Boarding Disabled Callout */
+                           <div className="flex flex-col items-center justify-center py-8 px-4 text-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 animate-in fade-in duration-300 w-full">
+                              <div className="bg-amber-100 rounded-full p-4 mb-4 text-amber-600 shadow-inner">
+                                 <AlertCircle className="w-8 h-8" />
+                              </div>
+                              <h3 className="text-lg font-bold text-gray-900 mb-1">Simulación de Abordaje Desactivada</h3>
+                              <p className="text-gray-500 text-sm max-w-md mb-6 leading-relaxed">
+                                 No tienes ningún método de pago o tarjeta de transporte vinculada a tu cuenta. Vincula una tarjeta en el panel de arriba para poder generar boletos y abordar buses.
+                              </p>
                               <button
-                                 type="submit"
-                                 disabled={boardingLoading}
-                                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-4 rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-xs"
+                                 onClick={() => setIsAssociateOpen(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 text-xs uppercase tracking-wider flex items-center gap-2"
                               >
-                                 {boardingLoading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                 ) : (
-                                    <Zap className="h-4 w-4 fill-current text-yellow-300" />
-                                 )}
-                                 Abordar Bus
+                                 <Sparkles className="w-4 h-4 text-yellow-300" /> Vincular Tarjeta Ahora
                               </button>
                            </div>
-                        </form>
+                        )
                      ) : (
                         /* Alighting Form (Active Trip Progress) */
                         <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md border border-slate-700 animate-in fade-in zoom-in-95">
@@ -752,6 +877,17 @@ export const CiudadanoDashboard: React.FC = () => {
                            }}
                         />
                      )}
+
+                     {/* Modal de Vinculación de Método de Pago */}
+                     <AssociatePaymentMethodModal
+                        isOpen={isAssociateOpen}
+                        onClose={() => setIsAssociateOpen(false)}
+                        person={personData}
+                        citizen={citizenData}
+                        onSuccess={() => {
+                           fetchCitizen();
+                        }}
+                     />
                   </section>
                </>
             )}

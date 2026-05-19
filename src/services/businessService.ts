@@ -139,6 +139,25 @@ export const businessService = {
     return response.data;
   },
 
+  createPaymentMethod: async (data: {
+    type: string;
+    provider: string;
+    accountNumber: string;
+    isActive: boolean;
+    saldo?: number;
+  }) => {
+    const response = await businessApi.post("/payment-method", data);
+    return response.data;
+  },
+
+  associatePaymentMethodToCitizen: async (data: {
+    citizenId: number;
+    paymentMethodId: number;
+  }) => {
+    const response = await businessApi.post("/citizen-payment-method", data);
+    return response.data;
+  },
+
   // ══════════════════════════════
   //  DRIVERS
   // ══════════════════════════════

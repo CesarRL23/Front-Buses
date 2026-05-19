@@ -36,6 +36,9 @@ export enum AgeRange {
   SENIORS = "60+",
 }
 
+export const UNKNOWN_AGE_RANGE = "SIN_INFORMACION" as const;
+export type AgeSegmentRange = AgeRange | typeof UNKNOWN_AGE_RANGE;
+
 // Typing
 export interface AgeRangeLabel {
   range: AgeRange;
@@ -45,7 +48,7 @@ export interface AgeRangeLabel {
 }
 
 export interface PassengerByAgeRange {
-  range: AgeRange;
+  range: AgeSegmentRange;
   label: string;
   count: number;
   percentage: number;
@@ -61,6 +64,15 @@ export interface AnalysisData {
   };
   byAgeRange: PassengerByAgeRange[];
   byRoute?: Map<number, PassengerByAgeRange[]>;
+}
+
+export interface CitizenWithAge {
+  id: number;
+  person: any;
+  age: number | null;
+  ageRange: AgeRange | null;
+  hasAge: boolean;
+  ageLabel: string;
 }
 
 // Age classification
@@ -86,21 +98,45 @@ export const getAgeRangeLabel = (age: number): string => {
   return rangeObj?.label || "Desconocido";
 };
 
+export const normalizeAge = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const age = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(age) ? age : null;
+};
+
+export const getAverageAge = (citizens: CitizenWithAge[]): number | null => {
+  const validAges = citizens
+    .map((citizen) => citizen.age)
+    .filter((age): age is number => age !== null);
+
+  if (!validAges.length) {
+    return null;
+  }
+
+  const totalAge = validAges.reduce((sum, age) => sum + age, 0);
+  return Math.round(totalAge / validAges.length);
+};
+
 export const marketingAnalysisService = {
   // Get all citizens with complete data including person and age
-  getCitizensWithAge: async () => {
+  getCitizensWithAge: async (): Promise<CitizenWithAge[]> => {
     try {
       // Usamos el endpoint /person existente y mapeamos a la estructura que espera el análisis
       const persons = await businessService.getPersons();
 
       const enriched = Array.isArray(persons)
         ? persons.map((p: any) => {
-            const edad = p.edad ?? p.age ?? 0;
+            const edad = normalizeAge(p.edad ?? p.age);
             return {
               id: p.id,
               person: p,
               age: edad,
-              ageRange: getAgeRange(edad),
+              ageRange: edad !== null ? getAgeRange(edad) : null,
+              hasAge: edad !== null,
+              ageLabel: edad !== null ? getAgeRangeLabel(edad) : "Sin Informacion",
             };
           })
         : [];
@@ -120,10 +156,7 @@ export const marketingAnalysisService = {
   ): Promise<AnalysisData> => {
     try {
       const citizens = await marketingAnalysisService.getCitizensWithAge();
-
-      // Filter by date if provided (this would normally be done server-side)
-      // For now, we'll use all passengers
-      let filtered = citizens;
+      const filtered = citizens;
 
       // Filter by route if provided
       if (routeId) {
@@ -170,11 +203,25 @@ export const marketingAnalysisService = {
         },
       };
 
+      const unknownAgeSegment: PassengerByAgeRange = {
+        range: UNKNOWN_AGE_RANGE,
+        label: "Sin Informacion",
+        count: 0,
+        percentage: 0,
+        passengers: [],
+      };
+
       // Distribute passengers by age range
-      filtered.forEach((citizen: any) => {
-        const ageRange = citizen.ageRange;
-        byAgeRange[ageRange].count++;
-        byAgeRange[ageRange].passengers.push(citizen);
+      filtered.forEach((citizen) => {
+        if (citizen.hasAge && citizen.ageRange) {
+          const ageRange = citizen.ageRange;
+          byAgeRange[ageRange].count++;
+          byAgeRange[ageRange].passengers.push(citizen);
+          return;
+        }
+
+        unknownAgeSegment.count++;
+        unknownAgeSegment.passengers.push(citizen);
       });
 
       // Calculate percentages
@@ -182,6 +229,7 @@ export const marketingAnalysisService = {
       Object.values(byAgeRange).forEach((range) => {
         range.percentage = Math.round((range.count / total) * 100);
       });
+      unknownAgeSegment.percentage = Math.round((unknownAgeSegment.count / total) * 100);
 
       return {
         totalPassengers: filtered.length,
@@ -189,13 +237,15 @@ export const marketingAnalysisService = {
           startDate: startDate || new Date().toISOString(),
           endDate: endDate || new Date().toISOString(),
         },
-        byAgeRange: Object.values(byAgeRange),
+        byAgeRange: [...Object.values(byAgeRange), unknownAgeSegment],
       };
     } catch (error) {
       console.error("Error analyzing passengers by age range:", error);
       throw error;
     }
   },
+
+  getAverageAge,
 
   // Get all routes for filtering
   getRoutes: async () => {

@@ -269,12 +269,6 @@ export const RouteScheduleManager: React.FC<Props> = ({ companyId }) => {
                 >
                   <option value="">Seleccione un conductor...</option>
                   {drivers
-                    .filter(d => {
-                      // Only show driver if they have at least one shift with status 'COMPLETADO'
-                      const hasCompletedShift = shifts.some(s => s.driver?.id === d.id && s.estado === 'COMPLETADO');
-                      const isCurrentSelection = String(d.id) === formData.driverId;
-                      return hasCompletedShift || isCurrentSelection;
-                    })
                     .map(d => (
                       <option key={d.id} value={d.id}>{d.person?.nombre || `Conductor ${d.id}`}</option>
                     ))}

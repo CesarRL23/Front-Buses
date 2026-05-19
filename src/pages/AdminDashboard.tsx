@@ -135,6 +135,8 @@ export const AdminDashboard: React.FC = () => {
 
   // Expanded row for user roles
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
 
   // ── Roles tab state ──
   const [roleForm, setRoleForm]         = useState({ name: '', description: '' });
@@ -222,6 +224,7 @@ export const AdminDashboard: React.FC = () => {
       } else {
         setUsers([]);
       }
+      setSelectedUserIds([]);
       setRoles(rolesData);
       setCompanies(companiesData || []);
       setPersons(personsData || []);
@@ -295,8 +298,20 @@ export const AdminDashboard: React.FC = () => {
     setAssigning(true); setError(''); setSuccess('');
     try {
       await adminService.assignRole(selectedUserId, selectedRoleId);
-      // If role represents a company admin, also create company-admin relation
+
+      // Auto-sync Person roles in business microservice
       const roleObj = roles.find(r => r.id === selectedRoleId);
+      const userObj = users.find(u => u.id === selectedUserId);
+      if (userObj && roleObj) {
+        const currentRoles = getUserRoles(selectedUserId).map(ur => ur.role?.name || '');
+        const newRoles = [...currentRoles, roleObj.name];
+        await businessService.ensurePersonForUser({
+          id: selectedUserId,
+          name: userObj.name,
+          roles: newRoles
+        }).catch(err => console.error('Error auto-syncing person:', err));
+      }
+
       const needsCompany = roleObj?.name?.toUpperCase().includes('EMPRESA');
 
       if (needsCompany) {
@@ -304,9 +319,24 @@ export const AdminDashboard: React.FC = () => {
           throw new Error('Selecciona la empresa para asignar el administrador');
         }
 
-        const person = persons.find((p) => String(p.userId) === String(selectedUserId));
+        let person = persons.find((p) => String(p.userId) === String(selectedUserId));
         if (!person) {
-          throw new Error('No existe una Person en ms-negocio-buses asociada a este usuario. Debe existir person.userId = user.id.');
+          const userObj = users.find(u => u.id === selectedUserId);
+          if (userObj) {
+            try {
+              person = await businessService.createPerson({
+                nombre: userObj.name,
+                userId: userObj.id,
+                edad: 30, // Default age
+              });
+            } catch (createErr) {
+              console.error('Failed to auto-create Person:', createErr);
+            }
+          }
+        }
+
+        if (!person) {
+          throw new Error('No existe una Person en ms-negocio-buses asociada a este usuario y no se pudo crear automáticamente.');
         }
 
         await businessService.createCompanyAdmin({
@@ -334,10 +364,134 @@ export const AdminDashboard: React.FC = () => {
       setConfirmDialog(null);
       try {
         await adminService.removeUserRole(ur.id);
+
+        // Auto-sync Person roles in business microservice
+        if (ur.user && ur.role) {
+          const currentRoles = getUserRoles(ur.user.id).map(r => r.role?.name || '');
+          const newRoles = currentRoles.filter(roleName => roleName !== ur.role?.name);
+          await businessService.ensurePersonForUser({
+            id: ur.user.id,
+            name: ur.user.name,
+            roles: newRoles
+          }).catch(err => console.error('Error auto-syncing person removal:', err));
+        }
+
         setSuccess('Rol eliminado del usuario.');
         await loadData();
       } catch {
         setError('Error al quitar el rol.');
+      }
+    });
+  };
+
+  const handleToggleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleToggleSelectAllUsers = () => {
+    if (selectedUserIds.length === users.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(users.map(u => u.id));
+    }
+  };
+
+  const handleBulkAssignRole = async (roleId: string) => {
+    if (selectedUserIds.length === 0 || !roleId) return;
+    setAssigning(true); setError(''); setSuccess('');
+    let successCount = 0;
+    let failCount = 0;
+    try {
+      const roleObj = roles.find(r => r.id === roleId);
+      const needsCompany = roleObj?.name?.toUpperCase().includes('EMPRESA');
+
+      for (const userId of selectedUserIds) {
+        try {
+          await adminService.assignRole(userId, roleId);
+
+          // Auto-sync Person roles in business microservice
+          const userObj = users.find(u => u.id === userId);
+          if (userObj && roleObj) {
+            const currentRoles = getUserRoles(userId).map(ur => ur.role?.name || '');
+            const newRoles = [...currentRoles, roleObj.name];
+            await businessService.ensurePersonForUser({
+              id: userId,
+              name: userObj.name,
+              roles: newRoles
+            }).catch(err => console.error('Error auto-syncing person in bulk:', err));
+          }
+
+          if (needsCompany) {
+            let person = persons.find((p) => String(p.userId) === String(userId));
+            if (!person) {
+              const userObj = users.find(u => u.id === userId);
+              if (userObj) {
+                try {
+                  person = await businessService.createPerson({
+                    nombre: userObj.name,
+                    userId: userObj.id,
+                    edad: 30, // Default age
+                  });
+                } catch (createErr) {
+                  console.error('Failed to auto-create Person in bulk:', createErr);
+                }
+              }
+            }
+            if (person && companies.length > 0) {
+              await businessService.createCompanyAdmin({
+                personId: Number(person.id),
+                companyId: Number(companies[0].id),
+              });
+            }
+          }
+          successCount++;
+        } catch (err) {
+          console.error(`Error assigning role to user ${userId}:`, err);
+          failCount++;
+        }
+      }
+      if (failCount > 0) {
+        setError(`Se asignó el rol a ${successCount} usuarios, pero falló en ${failCount}.`);
+      } else {
+        setSuccess(`Se asignó el rol "${roleObj?.name}" correctamente a ${successCount} usuarios.`);
+      }
+      setSelectedUserIds([]);
+      await loadData();
+    } catch {
+      setError('Ocurrió un error al procesar la asignación masiva.');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleBulkDeleteUsers = () => {
+    if (selectedUserIds.length === 0) return;
+    ask(`¿Eliminar los ${selectedUserIds.length} usuarios seleccionados? Esta acción no se puede deshacer.`, async () => {
+      setConfirmDialog(null);
+      setError(''); setSuccess('');
+      let successCount = 0;
+      let failCount = 0;
+      try {
+        for (const userId of selectedUserIds) {
+          try {
+            await adminService.deleteUser(userId);
+            successCount++;
+          } catch (err) {
+            console.error(`Error deleting user ${userId}:`, err);
+            failCount++;
+          }
+        }
+        if (failCount > 0) {
+          setError(`Se eliminaron ${successCount} usuarios, pero fallaron ${failCount}.`);
+        } else {
+          setSuccess(`Se eliminaron exitosamente ${successCount} usuarios.`);
+        }
+        setSelectedUserIds([]);
+        await loadData();
+      } catch {
+        setError('Ocurrió un error al eliminar los usuarios.');
       }
     });
   };
@@ -694,19 +848,72 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* Users table */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-8 border-b border-gray-100">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                      <div className="bg-green-100 p-2 rounded-lg">
-                        <Users className="h-6 w-6 text-green-600" />
+                  <div className="p-8 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                        <div className="bg-green-100 p-2 rounded-lg">
+                          <Users className="h-6 w-6 text-green-600" />
+                        </div>
+                        Usuarios Registrados
+                        <span className="text-sm font-normal bg-green-100 text-green-700 px-4 py-1 rounded-full">{users.length} total</span>
+                      </h2>
+                      <p className="text-gray-500 text-xs mt-1">Selecciona uno o varios usuarios para realizar acciones masivas</p>
+                    </div>
+
+                    {selectedUserIds.length > 0 && (
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex flex-wrap items-center gap-4 shadow-sm animate-fadeIn w-full lg:w-auto">
+                        <span className="text-sm font-black text-blue-900">
+                          {selectedUserIds.length} seleccionados
+                        </span>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            id="bulk-role-select"
+                            className="border border-blue-300 bg-white rounded-lg px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                            onChange={(e) => {
+                              const roleId = e.target.value;
+                              if (roleId) {
+                                handleBulkAssignRole(roleId);
+                                e.target.value = ""; // Reset value
+                              }
+                            }}
+                          >
+                            <option value="">— Asignar rol masivo —</option>
+                            {roles.map(r => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+
+                          <button
+                            onClick={handleBulkDeleteUsers}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm hover:shadow active:scale-95"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                          </button>
+
+                          <button
+                            onClick={() => setSelectedUserIds([])}
+                            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 text-xs px-3 py-2 rounded-lg border border-gray-300 bg-white transition font-semibold"
+                          >
+                            Deseleccionar
+                          </button>
+                        </div>
                       </div>
-                      Usuarios Registrados
-                      <span className="ml-auto text-sm font-normal bg-green-100 text-green-700 px-4 py-1 rounded-full">{users.length} total</span>
-                    </h2>
+                    )}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-100 bg-gray-50">
+                          <th className="px-6 py-4 text-left w-12">
+                            <input
+                              type="checkbox"
+                              checked={users.length > 0 && selectedUserIds.length === users.length}
+                              onChange={handleToggleSelectAllUsers}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer h-4 w-4 transition-all"
+                              title="Seleccionar todos"
+                            />
+                          </th>
                           <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Nombre</th>
                           <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Email</th>
                           <th className="px-6 py-4 text-left text-gray-600 font-bold text-xs uppercase tracking-wider">Roles</th>
@@ -717,18 +924,27 @@ export const AdminDashboard: React.FC = () => {
                         {users.map(u => {
                           const userRoles = getUserRoles(u.id);
                           const isExpanded = expandedUser === u.id;
+                          const isSelected = selectedUserIds.includes(u.id);
                           return (
                             <React.Fragment key={u.id}>
-                              <tr className="hover:bg-gray-50 transition">
+                              <tr className={`hover:bg-gray-50/80 transition-all ${isExpanded ? 'bg-gray-50/50' : ''} ${isSelected ? 'bg-blue-50/30' : ''}`}>
+                                <td className="px-6 py-4 w-12">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleSelectUser(u.id)}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer h-4 w-4"
+                                  />
+                                </td>
                                 <td className="px-6 py-4 font-semibold text-gray-900">{u.name}</td>
                                 <td className="px-6 py-4 text-gray-500">{u.email}</td>
                                 <td className="px-6 py-4">
                                   <button
                                     onClick={() => setExpandedUser(isExpanded ? null : u.id)}
-                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm"
+                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm transition"
                                   >
                                     <MetricBadge label="Roles" value={userRoles.length} color="blue" size="sm" />
-                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                    {isExpanded ? <ChevronUp className="h-4 w-4 animate-bounce-subtle" /> : <ChevronDown className="h-4 w-4" />}
                                   </button>
                                 </td>
                                 <td className="px-6 py-4 text-right">
@@ -737,7 +953,7 @@ export const AdminDashboard: React.FC = () => {
                                       <button
                                         onClick={() => startEditUser(u)}
                                         title="Editar usuario"
-                                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition active:scale-90"
                                       >
                                         <Pencil className="h-5 w-5" />
                                       </button>
@@ -746,7 +962,7 @@ export const AdminDashboard: React.FC = () => {
                                       <button
                                         onClick={() => handleDeleteUser(u)}
                                         title="Eliminar usuario"
-                                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
+                                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition active:scale-90"
                                       >
                                         <Trash2 className="h-5 w-5" />
                                       </button>
@@ -756,18 +972,18 @@ export const AdminDashboard: React.FC = () => {
                               </tr>
                               {isExpanded && (
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                  <td colSpan={4} className="px-6 py-4">
+                                  <td colSpan={5} className="px-6 py-4">
                                     {userRoles.length === 0 ? (
-                                      <div className="flex items-center gap-2 text-gray-500">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        <span className="font-medium">Sin roles asignados</span>
+                                      <div className="flex items-center gap-2 text-gray-500 text-xs">
+                                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                        <span className="font-semibold">Sin roles asignados</span>
                                       </div>
                                     ) : (
-                                      <div className="flex flex-wrap gap-3">
+                                      <div className="flex flex-wrap gap-2.5">
                                         {userRoles.map(ur => (
                                           <div
                                             key={ur.id}
-                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border ${
+                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
                                               ROLE_COLORS[ur.role?.name?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200'
                                             }`}
                                           >
@@ -776,7 +992,7 @@ export const AdminDashboard: React.FC = () => {
                                               <button
                                                 onClick={() => handleRemoveUserRole(ur)}
                                                 title="Quitar rol"
-                                                className="hover:opacity-70 transition ml-2"
+                                                className="hover:opacity-75 transition ml-1.5 p-0.5 hover:bg-black/5 rounded"
                                               >
                                                 <X className="h-3 w-3" />
                                               </button>
@@ -793,7 +1009,7 @@ export const AdminDashboard: React.FC = () => {
                         })}
                         {users.length === 0 && (
                           <tr>
-                            <td colSpan={4} className="px-6 py-12 text-center text-gray-400 font-medium">
+                            <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-medium">
                               No hay usuarios registrados
                             </td>
                           </tr>

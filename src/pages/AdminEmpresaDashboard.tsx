@@ -129,6 +129,37 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
+      const isCompanyAdmin = user?.roles?.some(r => r.toUpperCase().includes('EMPRESA')) ?? false;
+      const isAdmin = user?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false;
+
+      // Force company admins (non-global admins) to strictly view only their assigned companies
+      if (isCompanyAdmin && !isAdmin) {
+        const [assignments, whereaboutsData] = await Promise.all([
+          businessService.getCompanyAdmins() as Promise<CompanyAdminAssignment[]>,
+          businessService.getWhereabouts().catch(() => []),
+        ]);
+
+        const myCompaniesRaw = assignments
+          .filter((item) => String(item.person?.userId || '') === String(user.id))
+          .map((item) => item.company)
+          .filter((company): company is Company => Boolean(company?.id));
+
+        const uniqueById = new Map<number, Company>();
+        myCompaniesRaw.forEach((company) => {
+          uniqueById.set(company.id, company);
+        });
+        const myCompanies = Array.from(uniqueById.values());
+
+        setCompanies(myCompanies);
+        setWhereabouts(Array.isArray(whereaboutsData) ? whereaboutsData : []);
+        setSelectedCompanyId(myCompanies.length > 0 ? myCompanies[0].id : null);
+        if (myCompanies.length === 0) {
+          setError('No tienes una empresa asignada. Contacta al administrador del sistema.');
+        }
+        return;
+      }
+
+      // Default logic for global admins
       const [companiesData, whereaboutsData] = await Promise.all([
         businessService.getCompanies(),
         businessService.getWhereabouts().catch(() => []),
@@ -172,7 +203,7 @@ export const AdminEmpresaDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.roles]);
 
   const loadTabData = useCallback(async () => {
     if (!selectedCompanyId) return;

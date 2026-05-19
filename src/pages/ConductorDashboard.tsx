@@ -28,6 +28,14 @@ interface Shift {
   hora_fin: string;
   estado: string;
   bus?: { id: number; placa: string; marca?: string; modelo?: string; capacidad?: number };
+  driver?: {
+    id: number;
+    person?: {
+      id: number;
+      nombre?: string;
+      userId?: string;
+    };
+  };
 }
 
 export const ConductorDashboard: React.FC = () => {
@@ -54,10 +62,17 @@ export const ConductorDashboard: React.FC = () => {
     try {
       setLoading(true);
       const data = await businessService.getShifts();
-      // Assume backend returns all shifts, filter to today's shifts for this driver
-      // For demo purposes, if driver logic is not fully implemented in backend yet, 
-      // we'll just take any shift that is PROGRAMADO or EN CURSO to show the feature.
-      setShifts(Array.isArray(data) ? data : []);
+      
+      let driverShifts = Array.isArray(data) ? data : [];
+      
+      // Filter shifts to only show the ones assigned to the current logged-in driver
+      if (user?.id) {
+        driverShifts = driverShifts.filter(s => 
+          s.driver?.person?.userId === user.id
+        );
+      }
+      
+      setShifts(driverShifts);
     } catch (err) {
       setError('Error al cargar tus turnos');
     } finally {

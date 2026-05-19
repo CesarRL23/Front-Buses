@@ -43,6 +43,7 @@ export const RouteScheduleManager: React.FC<Props> = ({ companyId }) => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [buses, setBuses] = useState<BusRecord[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -63,20 +64,22 @@ export const RouteScheduleManager: React.FC<Props> = ({ companyId }) => {
     tipoRecurrencia: 'DIARIA',
     estado: 'PROGRAMADO'
   });
-
+ 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [schedulesData, routesData, busesData, driversData] = await Promise.all([
+      const [schedulesData, routesData, busesData, driversData, shiftsData] = await Promise.all([
         businessService.getSchedules(companyId).catch(() => []),
         businessService.getRoutes(companyId).catch(() => []),
         businessService.getBuses(companyId).catch(() => []),
-        businessService.getDrivers().catch(() => [])
+        businessService.getDrivers().catch(() => []),
+        businessService.getShifts().catch(() => [])
       ]);
       setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
       setRoutes(Array.isArray(routesData) ? routesData : []);
       setBuses(Array.isArray(busesData) ? busesData : []);
       setDrivers(Array.isArray(driversData) ? driversData : []);
+      setShifts(Array.isArray(shiftsData) ? shiftsData : []);
     } catch (err) {
       setError('Error al cargar la información de programaciones');
     } finally {
@@ -148,8 +151,8 @@ export const RouteScheduleManager: React.FC<Props> = ({ companyId }) => {
       await businessService.deleteSchedule(id);
       setSuccess('Programación eliminada');
       loadData();
-    } catch (err) {
-      setError('Error al eliminar la programación');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Error al eliminar la programación');
     } finally {
       setActionLoading(false);
     }
@@ -265,9 +268,16 @@ export const RouteScheduleManager: React.FC<Props> = ({ companyId }) => {
                   required
                 >
                   <option value="">Seleccione un conductor...</option>
-                  {drivers.map(d => (
-                    <option key={d.id} value={d.id}>{d.person?.nombre || `Conductor ${d.id}`}</option>
-                  ))}
+                  {drivers
+                    .filter(d => {
+                      // Only show driver if they have at least one shift with status 'COMPLETADO'
+                      const hasCompletedShift = shifts.some(s => s.driver?.id === d.id && s.estado === 'COMPLETADO');
+                      const isCurrentSelection = String(d.id) === formData.driverId;
+                      return hasCompletedShift || isCurrentSelection;
+                    })
+                    .map(d => (
+                      <option key={d.id} value={d.id}>{d.person?.nombre || `Conductor ${d.id}`}</option>
+                    ))}
                 </select>
               </div>
             </div>

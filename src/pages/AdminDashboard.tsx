@@ -27,6 +27,7 @@ import {
   Activity,
   MapPin,
   Building,
+  Search,
 } from 'lucide-react';
 import { StatsCard, ActivityFeed, MetricBadge, QuickActionButton } from '../components/DashboardComponents';
 import { CompanyManager } from '../components/CompanyManager';
@@ -145,10 +146,12 @@ export const AdminDashboard: React.FC = () => {
   const [editingPerm, setEditingPerm]   = useState<Permission | null>(null);
   const [savingPerm, setSavingPerm]     = useState(false);
 
-  // ── Role-Permissions tab state ──
-  const [expandedRole, setExpandedRole] = useState<string | null>(null);
-  const [selectedRoleForPerm, setSelectedRoleForPerm] = useState('');
-  const [selectedPermForRole, setSelectedPermForRole] = useState('');
+  // ── Role-Permissions tab state (Batch Assignment) ──
+  const [selectedRoleForBatch, setSelectedRoleForBatch] = useState<string>('');
+  const [selectedPermIds, setSelectedPermIds] = useState<string[]>([]);
+  const [originalPermIds, setOriginalPermIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [methodFilter, setMethodFilter] = useState<string>('ALL');
   const [assigningPerm, setAssigningPerm] = useState(false);
 
   // ── Permissions State ──
@@ -167,6 +170,19 @@ export const AdminDashboard: React.FC = () => {
     const t = setTimeout(() => { setSuccess(''); setError(''); }, 4000);
     return () => clearTimeout(t);
   }, [success, error]);
+
+  // Synchronize batch assignment permissions when role or role permissions change
+  useEffect(() => {
+    if (selectedRoleForBatch) {
+      const currentRolePerms = rolePermissions.filter(rp => rp.role?.id === selectedRoleForBatch);
+      const currentPermIds = currentRolePerms.map(rp => rp.permission?.id).filter(Boolean);
+      setSelectedPermIds(currentPermIds);
+      setOriginalPermIds(currentPermIds);
+    } else {
+      setSelectedPermIds([]);
+      setOriginalPermIds([]);
+    }
+  }, [selectedRoleForBatch, rolePermissions]);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -1032,121 +1048,343 @@ export const AdminDashboard: React.FC = () => {
             )}
 
             {/* ══════════════════════════════════════════
-                TAB: ROLES → PERMISOS
+                TAB: ROLES → PERMISOS (Batch Assignment)
             ══════════════════════════════════════════ */}
             {activeTab === 'rolePerms' && (
-              <div className="space-y-6">
-                {/* Assign permission to role */}
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100 shadow-sm p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="bg-purple-600 p-2 rounded-lg">
-                      <Unlock className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">Asignar Permiso a Rol</h2>
-                      <p className="text-sm text-gray-600">Vincula permisos de API a roles de usuario</p>
-                    </div>
-                  </div>
-                  <form onSubmit={handleAssignPermToRole} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                    <select
-                      value={selectedRoleForPerm}
-                      onChange={e => setSelectedRoleForPerm(e.target.value)}
-                      className="sm:col-span-4 border border-purple-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                      required
-                    >
-                      <option value="">— Seleccionar rol —</option>
-                      {roles.map(r => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={selectedPermForRole}
-                      onChange={e => setSelectedPermForRole(e.target.value)}
-                      className="sm:col-span-5 border border-purple-200 bg-white rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                      required
-                    >
-                      <option value="">— Seleccionar permiso —</option>
-                      {permissions.map(p => (
-                        <option key={p.id} value={p.id}>
-                          [{p.method}] {p.url} — {p.description}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="submit"
-                      disabled={assigningPerm}
-                      className="sm:col-span-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg text-white text-sm font-bold px-6 py-3 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
-                    >
-                      <Plus className="h-5 w-5" />
-                      {assigningPerm ? 'Asignando...' : 'Asignar'}
-                    </button>
-                  </form>
-                </div>
-
-                {/* Roles with their permissions */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-8 border-b border-gray-100">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                      <div className="bg-red-100 p-2 rounded-lg">
-                        <Shield className="h-6 w-6 text-red-600" />
-                      </div>
-                      Permisos por Rol
-                      <span className="ml-auto text-sm font-normal bg-red-100 text-red-700 px-4 py-1 rounded-full">{roles.length} roles</span>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Column 1: Left - Roles List (4 cols) */}
+                <div className="lg:col-span-4 space-y-4">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-blue-600" />
+                      Seleccionar Rol
                     </h2>
-                  </div>
-                  <div className="p-6 space-y-4">
-                    {roles.map(role => {
-                      const perms = getRolePerms(role.id);
-                      const isOpen = expandedRole === role.id;
-                      return (
-                        <div key={role.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition">
+                    <p className="text-xs text-gray-500 mb-4">
+                      Selecciona un rol para gestionar y asignar sus permisos en lote.
+                    </p>
+                    
+                    <div className="space-y-2">
+                      {roles.map(role => {
+                        const permsCount = getRolePerms(role.id).length;
+                        const isSelected = selectedRoleForBatch === role.id;
+                        return (
                           <button
-                            onClick={() => setExpandedRole(isOpen ? null : role.id)}
-                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition text-left"
+                            key={role.id}
+                            type="button"
+                            onClick={() => setSelectedRoleForBatch(role.id)}
+                            className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center justify-between ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow-sm ring-1 ring-blue-500'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
                           >
-                            <div className="flex items-center gap-3">
-                              <MetricBadge label={role.name} value="" color={role.name?.toUpperCase() === 'ADMIN' ? 'red' : 'purple'} size="md" />
-                              <span className="text-sm text-gray-600">{role.description}</span>
+                            <div>
+                              <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                                {role.name}
+                                {isSelected && (
+                                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">
+                                {role.description || 'Sin descripción'}
+                              </div>
                             </div>
-                            <span className="flex items-center gap-2 text-gray-400 text-sm font-semibold">
-                              {perms.length} permiso{perms.length !== 1 ? 's' : ''}
-                              {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                            
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                              isSelected 
+                                ? 'bg-blue-600 text-white shadow-sm' 
+                                : 'bg-gray-100 text-gray-600 border border-gray-200'
+                            }`}>
+                              {permsCount} perm
                             </span>
                           </button>
-
-                          {isOpen && (
-                            <div className="border-t border-gray-100 bg-gray-50 px-6 py-4">
-                              {perms.length === 0 ? (
-                                <p className="text-gray-400 text-sm font-medium">Sin permisos asignados</p>
-                              ) : (
-                                <div className="flex flex-col gap-2">
-                                  {perms.map(rp => (
-                                    <div key={rp.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-3">
-                                      <div className="flex items-center gap-3">
-                                        <MetricBadge label={rp.permission?.method} value="" color={rp.permission?.method === 'GET' ? 'green' : rp.permission?.method === 'POST' ? 'blue' : 'red'} size="sm" />
-                                        <span className="font-mono text-sm text-gray-700 font-semibold">{rp.permission?.url}</span>
-                                        {rp.permission?.description && (
-                                          <span className="text-sm text-gray-500">— {rp.permission.description}</span>
-                                        )}
-                                      </div>
-                                      <button
-                                        onClick={() => handleRemoveRolePerm(rp)}
-                                        title="Quitar permiso"
-                                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
+
+                {/* Column 2: Right - Permissions Batch Manager (8 cols) */}
+                <div className="lg:col-span-8">
+                  {!selectedRoleForBatch ? (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center flex flex-col items-center justify-center min-h-[350px]">
+                      <div className="bg-blue-50 p-4 rounded-full mb-4">
+                        <Lock className="h-8 w-8 text-blue-600 animate-bounce" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">Ningún rol seleccionado</h3>
+                      <p className="text-gray-500 text-sm max-w-sm">
+                        Por favor selecciona un rol del panel de la izquierda para comenzar a gestionar sus permisos en lote.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                      
+                      {/* Panel Header */}
+                      <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-800 px-2.5 py-1 rounded-md">
+                              Gestionando Rol
+                            </span>
+                            <h2 className="text-xl font-extrabold text-gray-950">
+                              {roles.find(r => r.id === selectedRoleForBatch)?.name}
+                            </h2>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {roles.find(r => r.id === selectedRoleForBatch)?.description || 'Sin descripción'}
+                          </p>
+                        </div>
+                        
+                        {/* Summary of Changes */}
+                        {(() => {
+                          const added = selectedPermIds.filter(id => !originalPermIds.includes(id)).length;
+                          const removed = originalPermIds.filter(id => !selectedPermIds.includes(id)).length;
+                          const hasChanges = added > 0 || removed > 0;
+                          
+                          return hasChanges ? (
+                            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2 text-xs font-semibold flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                              Cambios pendientes: {added > 0 && `+${added} asignaciones`} {removed > 0 && `-${removed} eliminaciones`}
+                            </div>
+                          ) : (
+                            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-2 text-xs font-semibold flex items-center gap-1.5">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              Guardado y al día
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      
+                      {/* Search and Filters */}
+                      <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Buscar permisos por URL o descripción..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+                        
+                        {/* Method Filter dropdown / pills */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {['ALL', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(method => (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => setMethodFilter(method)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                methodFilter === method
+                                  ? 'bg-gray-900 text-white shadow-sm'
+                                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              {method === 'ALL' ? 'Todos' : method}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Selection Toolbar */}
+                      <div className="px-6 py-3 border-b border-gray-100 bg-white flex items-center justify-between text-xs text-gray-600">
+                        <div>
+                          Mostrando <b>{
+                            permissions.filter(p => {
+                              const matchesSearch = p.url.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                                    p.description.toLowerCase().includes(searchTerm.toLowerCase());
+                              const matchesMethod = methodFilter === 'ALL' || p.method === methodFilter;
+                              return matchesSearch && matchesMethod;
+                            }).length
+                          }</b> de <b>{permissions.length}</b> permisos
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const filtered = permissions.filter(p => {
+                                const matchesSearch = p.url.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                                      p.description.toLowerCase().includes(searchTerm.toLowerCase());
+                                const matchesMethod = methodFilter === 'ALL' || p.method === methodFilter;
+                                return matchesSearch && matchesMethod;
+                              });
+                              const filteredIds = filtered.map(p => p.id);
+                              setSelectedPermIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+                            }}
+                            className="text-blue-600 hover:text-blue-700 font-bold hover:underline"
+                          >
+                            Seleccionar Filtrados
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const filtered = permissions.filter(p => {
+                                const matchesSearch = p.url.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                                      p.description.toLowerCase().includes(searchTerm.toLowerCase());
+                                const matchesMethod = methodFilter === 'ALL' || p.method === methodFilter;
+                                return matchesSearch && matchesMethod;
+                              });
+                              const filteredIds = filtered.map(p => p.id);
+                              setSelectedPermIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                            }}
+                            className="text-red-500 hover:text-red-600 font-bold hover:underline"
+                          >
+                            Deseleccionar Filtrados
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Permissions List */}
+                      <div className="max-h-[450px] overflow-y-auto divide-y divide-gray-100 bg-white">
+                        {(() => {
+                          const filtered = permissions.filter(p => {
+                            const matchesSearch = p.url.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                                  p.description.toLowerCase().includes(searchTerm.toLowerCase());
+                            const matchesMethod = methodFilter === 'ALL' || p.method === methodFilter;
+                            return matchesSearch && matchesMethod;
+                          });
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="p-8 text-center text-gray-400 font-medium">
+                                No se encontraron permisos con los filtros aplicados.
+                              </div>
+                            );
+                          }
+
+                          return filtered.map(perm => {
+                            const isChecked = selectedPermIds.includes(perm.id);
+                            return (
+                              <label
+                                key={perm.id}
+                                className={`flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors select-none ${
+                                  isChecked ? 'bg-blue-50/20' : ''
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={e => {
+                                    if (e.target.checked) {
+                                      setSelectedPermIds(prev => [...prev, perm.id]);
+                                    } else {
+                                      setSelectedPermIds(prev => prev.filter(id => id !== perm.id));
+                                    }
+                                  }}
+                                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${
+                                      METHOD_COLORS[perm.method?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200'
+                                    }`}>
+                                      {perm.method}
+                                    </span>
+                                    <span className="font-mono text-sm font-bold text-gray-800 break-all">
+                                      {perm.url}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500">
+                                    {perm.description || 'Sin descripción'}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+
+                      {/* Footer Actions / Sticky Save Bar */}
+                      {(() => {
+                        const added = selectedPermIds.filter(id => !originalPermIds.includes(id));
+                        const removed = originalPermIds.filter(id => !selectedPermIds.includes(id));
+                        const hasChanges = added.length > 0 || removed.length > 0;
+                        
+                        return (
+                          <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div className="text-xs text-gray-500">
+                              {hasChanges ? (
+                                <span>
+                                  Tienes cambios sin guardar. Haz clic en <b>Guardar Cambios</b> para aplicar.
+                                </span>
+                              ) : (
+                                <span>No hay cambios pendientes de guardar.</span>
+                              )}
+                            </div>
+                            
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                disabled={!hasChanges || assigningPerm}
+                                onClick={() => {
+                                  setSelectedPermIds(originalPermIds);
+                                }}
+                                className="px-4 py-2 text-xs font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition"
+                              >
+                                Revertir
+                              </button>
+                              
+                              <button
+                                type="button"
+                                disabled={!hasChanges || assigningPerm}
+                                onClick={async () => {
+                                  setAssigningPerm(true);
+                                  setError('');
+                                  setSuccess('');
+                                  try {
+                                    const addPromises = added.map(permId => 
+                                      adminService.addPermissionToRole(selectedRoleForBatch, permId)
+                                    );
+                                    
+                                    const removePromises = removed.map(async permId => {
+                                      const rpRecord = rolePermissions.find(rp => rp.role?.id === selectedRoleForBatch && rp.permission?.id === permId);
+                                      if (rpRecord) {
+                                        await adminService.removeRolePermission(rpRecord.id);
+                                      }
+                                    });
+
+                                    await Promise.all([...addPromises, ...removePromises]);
+                                    
+                                    setSuccess(`Asignación de permisos actualizada: se agregaron ${added.length} y se quitaron ${removed.length}.`);
+                                    await loadData();
+                                  } catch (err: any) {
+                                    const backendMessage = err?.response?.data?.message;
+                                    setError(
+                                      Array.isArray(backendMessage)
+                                        ? backendMessage.join(', ')
+                                        : backendMessage || 'Error al guardar los cambios en lote. Verifica tus permisos.'
+                                    );
+                                  } finally {
+                                    setAssigningPerm(false);
+                                  }
+                                }}
+                                className="px-6 py-2.5 text-xs font-extrabold rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg disabled:opacity-50 transition flex items-center gap-2"
+                              >
+                                {assigningPerm ? (
+                                  <>
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    Guardando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="h-3.5 w-3.5" />
+                                    Guardar Cambios ({added.length + removed.length})
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      
+                    </div>
+                  )}
+                </div>
+                
               </div>
             )}
 

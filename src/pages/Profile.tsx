@@ -1,27 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Navbar } from '../components/Navbar';
 import { FormInput } from '../components/FormInput';
-import { User as UserIcon, Mail, Phone, Shield, CreditCard as Edit2, Save, X } from 'lucide-react';
+import { businessService } from '../services/businessService';
+import { User as UserIcon, Mail, Phone, Shield, CreditCard as Edit2, Save, X, Calendar } from 'lucide-react';
 
 export const Profile: React.FC = () => {
   const { user, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const [person, setPerson] = useState<any>(null);
+  const [birthDate, setBirthDate] = useState<string>('');
 
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
     phoneNumber: user?.phoneNumber || '',
+    edad: 0,
   });
+
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      try {
+        const token = localStorage.getItem('auth_token');
+        const p = await businessService.findPersonByUserId(user.id, token);
+        if (p) {
+          setPerson(p);
+          setFormData(prev => ({ ...prev, edad: p.edad || 0 }));
+        }
+      } catch (e) {
+        console.warn('No se pudo obtener person:', e);
+      }
+    })();
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const calculateAge = (dateStr: string) => {
+    if (!dateStr) return 0;
+    const today = new Date();
+    const dob = new Date(dateStr);
+    let years = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      years--;
+    }
+    return years;
+  };
+
+  const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBirthDate(e.target.value);
+    const computed = calculateAge(e.target.value);
+    setFormData({ ...formData, edad: computed });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,6 +69,13 @@ export const Profile: React.FC = () => {
 
     try {
       await updateProfile(formData);
+      
+      // Update person entity with edad if person exists
+      if (person) {
+        const token = localStorage.getItem('auth_token');
+        await businessService.updatePerson(person.id, { edad: formData.edad }, token);
+      }
+      
       setSuccess('Perfil actualizado correctamente');
       setIsEditing(false);
       setTimeout(() => setSuccess(''), 3000);
@@ -47,7 +92,9 @@ export const Profile: React.FC = () => {
       lastName: user?.lastName || '',
       email: user?.email || '',
       phoneNumber: user?.phoneNumber || '',
+      edad: person?.edad || 0,
     });
+    setBirthDate('');
     setIsEditing(false);
   };
 
@@ -169,6 +216,35 @@ export const Profile: React.FC = () => {
                 placeholder="+593 99 123 4567"
                 icon={<Phone className="h-5 w-5 text-gray-400" />}
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Calendar className="h-4 w-4 inline mr-2" />
+                    Fecha de Nacimiento
+                  </label>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={handleBirthDateChange}
+                    disabled={!isEditing}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
+                      isEditing ? 'bg-white border-gray-300' : 'bg-gray-50 border-gray-200 cursor-not-allowed'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Edad
+                  </label>
+                  <div className={`w-full px-4 py-2 border rounded-lg ${
+                    isEditing ? 'bg-gray-50 border-gray-300' : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <p className="text-gray-900 font-medium">{formData.edad} años</p>
+                  </div>
+                </div>
+              </div>
             </form>
 
             <div className="mt-8 pt-8 border-t border-gray-200">

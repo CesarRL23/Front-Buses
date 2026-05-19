@@ -8,12 +8,14 @@ import { TwoFactor } from '../pages/TwoFactor';
 import { Dashboard } from '../pages/Dashboard';
 import { DashboardRedirect } from '../components/DashboardRedirect';
 import { Profile } from '../pages/Profile';
+import { CompleteBirthDate } from '../pages/CompleteBirthDate';
 import { OAuthCallback } from '../pages/OAuthCallback';
 import { AdminDashboard } from '../pages/AdminDashboard';
 import { SupervisorDashboard } from '../pages/SupervisorDashboard';
 import { ConductorDashboard } from '../pages/ConductorDashboard';
 import { CiudadanoDashboard } from '../pages/CiudadanoDashboard';
 import { AdminEmpresaDashboard } from '../pages/AdminEmpresaDashboard';
+import { MarketingAnalystDashboard } from '../pages/MarketingAnalystDashboard';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -39,6 +41,15 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <Profile />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/complete-birthdate"
+          element={
+            <PrivateRoute>
+              <CompleteBirthDate />
             </PrivateRoute>
           }
         />
@@ -84,6 +95,15 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <AdminEmpresaDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/marketing-analyst"
+          element={
+            <PrivateRoute>
+              <MarketingAnalystDashboard />
             </PrivateRoute>
           }
         />

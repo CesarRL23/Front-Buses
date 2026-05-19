@@ -131,6 +131,48 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     title: 'Gerente Operaciones',
     desc: 'Tendencias e informes',
     color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'ANALISTA DE MARKETING': {
+    path: '/marketing-analyst',
+    icon: TrendingUp,
+    title: 'Analista de Marketing',
+    desc: 'Análisis demográfico',
+    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+  },
+  'ANALISTA_DE_MARKETING': {
+    path: '/marketing-analyst',
+    icon: TrendingUp,
+    title: 'Analista de Marketing',
+    desc: 'Análisis demográfico',
+    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+  },
+  'ANALISTADEMARKETING': {
+    path: '/marketing-analyst',
+    icon: TrendingUp,
+    title: 'Analista de Marketing',
+    desc: 'Análisis demográfico',
+    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+  },
+  'MARKETING_ANALYST': {
+    path: '/marketing-analyst',
+    icon: TrendingUp,
+    title: 'Analista de Marketing',
+    desc: 'Análisis demográfico',
+    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+  },
+  'MARKETING ANALYST': {
+    path: '/marketing-analyst',
+    icon: TrendingUp,
+    title: 'Analista de Marketing',
+    desc: 'Análisis demográfico',
+    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+  },
+  'MARKETINGANALYST': {
+    path: '/marketing-analyst',
+    icon: TrendingUp,
+    title: 'Analista de Marketing',
+    desc: 'Análisis demográfico',
+    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
   }
 };
 

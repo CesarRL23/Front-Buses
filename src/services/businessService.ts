@@ -424,5 +424,33 @@ export const businessService = {
       otro: number;
     }>;
   },
+
+  // ══════════════════════════════
+  //  MARKETING-ANALYST
+  // ══════════════════════════════
+  getMarketingAnalysts: async () => {
+    const response = await businessApi.get("/marketing-analyst");
+    return response.data;
+  },
+
+  createMarketingAnalyst: async (data: { personId: number; companyId?: number }) => {
+    const response = await businessApi.post("/marketing-analyst", data);
+    return response.data;
+  },
+
+  updateMarketingAnalyst: async (id: number, data: { personId?: number; companyId?: number }) => {
+    const response = await businessApi.patch(`/marketing-analyst/${id}`, data);
+    return response.data;
+  },
+
+  deleteMarketingAnalyst: async (id: number) => {
+    await businessApi.delete(`/marketing-analyst/${id}`);
+  },
+
+  getMarketingAnalystByPersonId: async (personId: number) => {
+    const response = await businessApi.get(`/marketing-analyst/person/${personId}`);
+    return response.data;
+  },
 };
+
 

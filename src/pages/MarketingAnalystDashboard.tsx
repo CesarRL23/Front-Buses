@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, Download, Filter, PieChart as PieIcon, TrendingUp } from "lucide-react";
+import { Calendar, Download, Filter, PieChart as PieIcon, TrendingUp, BarChart3, Sparkles } from "lucide-react";
 import { Navbar } from "../components/Navbar";
+import { StatsCard, MetricBadge, QuickActionButton, EmptyState } from "../components/DashboardComponents";
 import { marketingAnalysisService, PassengerByAgeRange, AgeRange } from "../services/marketingAnalysisService";
 
 
@@ -121,14 +122,15 @@ export const MarketingAnalystDashboard: React.FC = () => {
     try {
       setLoading(true);
       const result = await marketingAnalysisService.getPassengersByAgeRange(startDate, endDate, selectedRoute || undefined);
-      setAnalysisData(result.byAgeRange);
+      const rows = result.byAgeRange || [];
+      setAnalysisData(rows);
 
       // Calculate stats
-      const dominant = result.byAgeRange.reduce((prev, current) =>
-        current.count > prev.count ? current : prev
-      );
+      const dominant = rows.length
+        ? rows.reduce((prev, current) => (current.count > prev.count ? current : prev))
+        : null;
 
-      const totalPassengers = result.byAgeRange.reduce((sum, r) => sum + r.count, 0);
+      const totalPassengers = rows.reduce((sum, r) => sum + r.count, 0);
 
       // Calculate average age (would be done better server-side)
       const citizens = await marketingAnalysisService.getCitizensWithAge();
@@ -139,7 +141,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
       setStats({
         totalPassengers,
         averageAge: avgAge,
-        dominantSegment: dominant.count > 0 ? dominant : null,
+        dominantSegment: dominant && dominant.count > 0 ? dominant : null,
       });
     } catch (error) {
       console.error("Error loading analysis data:", error);
@@ -222,16 +224,20 @@ export const MarketingAnalystDashboard: React.FC = () => {
     link.click();
   };
 
+  const selectedSegmentData = analysisData.find((row) => row.range === selectedSegment) || null;
+
   if (loading) {
     return (
-      <div className="flex flex-col h-screen">
+      <div className="flex min-h-screen flex-col">
         <Navbar />
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-          <div className="text-center">
-            <div className="inline-block animate-spin">
-              <PieIcon className="w-12 h-12 text-indigo-600" />
+        <div className="flex-1 flex items-center justify-center px-6 py-16">
+          <div className="surface-card w-full max-w-md p-10 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+              <PieIcon className="w-8 h-8 animate-spin" />
             </div>
-            <p className="mt-4 text-gray-600">Cargando datos de análisis...</p>
+            <p className="soft-label mb-2">Analítica demográfica</p>
+            <h2 className="text-2xl font-black text-slate-900">Cargando tablero</h2>
+            <p className="mt-3 text-sm text-slate-600">Estamos preparando los datos de pasajeros por segmento etario.</p>
           </div>
         </div>
       </div>
@@ -239,119 +245,94 @@ export const MarketingAnalystDashboard: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      {/* Header: same structure as other dashboards (greeting + subtitle) */}
-      <main className="max-w-7xl mx-auto w-full px-6 sm:px-8 lg:px-12 py-16 space-y-6">
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-indigo-50 opacity-10 rounded-3xl"></div>
-          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-10 bg-gradient-to-r from-white to-white rounded-3xl border border-gray-100">
-            <div>
-              <h1 className="text-3xl font-black text-gray-900 tracking-tight">Analista de Marketing</h1>
-              <p className="text-gray-600 text-sm mt-2">Análisis de pasajeros por segmento demográfico</p>
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+        <section className="hero-panel relative overflow-hidden p-8 sm:p-10">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.24),transparent_24%)]" />
+          <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl space-y-4">
+              <span className="pill-badge">
+                <Sparkles className="h-3.5 w-3.5" />
+                Analítica de mercado
+              </span>
+              <div className="space-y-2">
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Analista de Marketing</h1>
+                <p className="max-w-xl text-white/80 text-sm sm:text-base leading-6">
+                  Segmentación demográfica de pasajeros para detectar oportunidades de campaña, rutas con mayor demanda y cambios de comportamiento.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <MetricBadge label="Total pasajeros" value={stats.totalPassengers} color="blue" size="sm" icon={PieIcon} />
+                <MetricBadge label="Edad promedio" value={`${stats.averageAge} años`} color="green" size="sm" icon={TrendingUp} />
+                <MetricBadge label="Segmento líder" value={stats.dominantSegment ? stats.dominantSegment.label : 'Sin datos'} color="purple" size="sm" />
+              </div>
             </div>
-            {/* Removed duplicate user info (Navbar already displays user) */}
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:w-[24rem]">
+              <QuickActionButton icon={Download} label="Exportar PNG" onClick={exportToPNG} variant="secondary" fullWidth />
+              <QuickActionButton icon={Download} label="Exportar CSV" onClick={exportToExcel} variant="secondary" fullWidth />
+              <div className="sm:col-span-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80 backdrop-blur-md">
+                Usa los filtros para comparar rutas y periodos antes de descargar el análisis.
+              </div>
+            </div>
           </div>
         </section>
-      </main>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <PieIcon className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-3xl font-bold text-gray-900">
-              Analista de Marketing
-            </h1>
-          </div>
-          <p className="text-gray-600">
-            Análisis de pasajeros por segmento demográfico
-          </p>
-        </div>
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <StatsCard
+            title="Total de pasajeros"
+            value={stats.totalPassengers}
+            subtitle="Incluye la ventana de fechas y ruta seleccionada"
+            icon={PieIcon}
+            bgColor="bg-sky-50"
+            textColor="text-sky-700"
+            iconBgColor="bg-sky-100"
+          />
+          <StatsCard
+            title="Edad promedio"
+            value={`${stats.averageAge} años`}
+            subtitle="Promedio calculado sobre ciudadanos disponibles"
+            icon={TrendingUp}
+            bgColor="bg-emerald-50"
+            textColor="text-emerald-700"
+            iconBgColor="bg-emerald-100"
+          />
+          <StatsCard
+            title="Segmento predominante"
+            value={stats.dominantSegment ? stats.dominantSegment.label : 'Sin datos'}
+            subtitle={stats.dominantSegment ? `${stats.dominantSegment.count} pasajeros` : 'Esperando resultados'}
+            icon={BarChart3}
+            bgColor="bg-slate-50"
+            textColor="text-slate-700"
+            iconBgColor="bg-slate-200"
+          />
+        </section>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Total de Pasajeros</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {stats.totalPassengers}
-                </p>
-              </div>
-              <div className="bg-blue-100 rounded-full p-3">
-                <PieIcon className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Edad Promedio</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {stats.averageAge} años
-                </p>
-              </div>
-              <div className="bg-purple-100 rounded-full p-3">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Segmento Predominante</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {stats.dominantSegment ? stats.dominantSegment.label : "N/A"}
-                </p>
-                {stats.dominantSegment && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    {stats.dominantSegment.count} pasajeros
-                  </p>
-                )}
-              </div>
-              <div
-                className="rounded-full p-3"
-                style={{
-                  backgroundColor: stats.dominantSegment
-                    ? COLORS[stats.dominantSegment.range]
-                    : "#E5E7EB",
-                  opacity: 0.2,
-                }}
-              >
-                <TrendingUp
-                  className="w-6 h-6"
-                  style={{
-                    color: stats.dominantSegment
-                      ? COLORS[stats.dominantSegment.range]
-                      : "#999",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <section className="surface-card p-6 sm:p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ruta
-              </label>
+              <p className="soft-label mb-2">Filtros de análisis</p>
+              <h2 className="text-2xl font-black text-slate-900">Segmentación por ruta y periodo</h2>
+              <p className="mt-2 text-sm text-slate-600">Ajusta la consulta y vuelve a cargar la vista para actualizar la distribución.</p>
+            </div>
+            <button
+              onClick={handleDateFilter}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              <Calendar className="w-4 h-4" />
+              Aplicar filtros
+            </button>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            <label className="space-y-2">
+              <span className="soft-label">Ruta</span>
               <select
                 value={selectedRoute || ""}
                 onChange={(e) => setSelectedRoute(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
               >
                 <option value="">Consolidado</option>
                 {routes.map((route) => (
@@ -360,150 +341,124 @@ export const MarketingAnalystDashboard: React.FC = () => {
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Desde
-              </label>
+            <label className="space-y-2">
+              <span className="soft-label">Desde</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hasta
-              </label>
+            <label className="space-y-2">
+              <span className="soft-label">Hasta</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
               />
-            </div>
+            </label>
 
             <div className="flex items-end">
-              <button
-                onClick={handleDateFilter}
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
-              >
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Filtrar
-              </button>
+              <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                {selectedRoute ? 'Ruta seleccionada' : 'Todas las rutas'}
+                <br />
+                {startDate || endDate ? `${startDate || 'inicio'} → ${endDate || 'hoy'}` : 'Sin rango de fechas'}
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Charts and Data */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Pie Chart */}
-          <div className="bg-white rounded-lg shadow p-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Distribución por Rango Etario
-            </h3>
-            <div id="pie-chart-svg">
-              <PieChart data={analysisData} onSegmentClick={setSelectedSegment} />
+        <section className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="surface-card p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="soft-label mb-2">Distribución</p>
+                <h3 className="text-xl font-black text-slate-900">Rango etario de pasajeros</h3>
+              </div>
+              <div className="rounded-2xl bg-sky-50 p-3 text-sky-600">
+                <PieIcon className="h-6 w-6" />
+              </div>
             </div>
 
-            {/* Legend */}
-            <div className="mt-6 space-y-2">
+            <div id="pie-chart-svg" className="mt-6">
+              {analysisData.length > 0 ? (
+                <PieChart data={analysisData} onSegmentClick={setSelectedSegment} />
+              ) : (
+                <EmptyState
+                  icon={PieIcon}
+                  title="Sin datos para mostrar"
+                  description="Ajusta el filtro de ruta o fechas para cargar una distribución con resultados."
+                />
+              )}
+            </div>
+
+            <div className="mt-6 space-y-3">
               {analysisData.map((item) => (
-                <div key={item.range} className="flex items-center gap-3">
-                  <div
-                    className="w-4 h-4 rounded"
-                    style={{ backgroundColor: COLORS[item.range] }}
-                  ></div>
-                  <span className="text-sm text-gray-700">{item.label}</span>
-                  <span className="text-sm font-semibold text-gray-900 ml-auto">
-                    {item.percentage}%
-                  </span>
-                </div>
+                <button
+                  key={item.range}
+                  onClick={() => setSelectedSegment(item.range)}
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                    selectedSegment === item.range
+                      ? 'border-sky-300 bg-sky-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[item.range] }} />
+                  <span className="text-sm font-medium text-slate-800">{item.label}</span>
+                  <span className="ml-auto text-sm font-semibold text-slate-900">{item.percentage}%</span>
+                </button>
               ))}
             </div>
-
-            {/* Export Buttons */}
-            <div className="mt-8 flex gap-3">
-              <button
-                onClick={exportToPNG}
-                className="flex-1 px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition font-medium flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Descargar PNG
-              </button>
-              <button
-                onClick={exportToExcel}
-                className="flex-1 px-4 py-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition font-medium flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Descargar Excel
-              </button>
-            </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-lg shadow p-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Estadísticas Detalladas
-            </h3>
+          <div className="surface-card p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="soft-label mb-2">Detalle</p>
+                <h3 className="text-xl font-black text-slate-900">Estadísticas detalladas</h3>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full border-separate border-spacing-y-2">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">
-                      Rango Etario
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-900">
-                      Cantidad
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-900">
-                      %
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-900">
-                      Var. Mes
-                    </th>
+                  <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-500">
+                    <th className="px-4 py-2">Rango</th>
+                    <th className="px-4 py-2 text-right">Cantidad</th>
+                    <th className="px-4 py-2 text-right">%</th>
+                    <th className="px-4 py-2 text-right">Var. mes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analysisData.map((row) => (
                     <tr
                       key={row.range}
-                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                        selectedSegment === row.range ? "bg-indigo-50" : ""
-                      }`}
                       onClick={() => setSelectedSegment(row.range)}
+                      className={`cursor-pointer rounded-2xl border transition ${
+                        selectedSegment === row.range
+                          ? 'border-sky-200 bg-sky-50'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
                     >
-                      <td className="py-3 px-4">
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: COLORS[row.range] }}
-                          ></div>
-                          <span className="text-sm text-gray-900">
-                            {row.label}
-                          </span>
+                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[row.range] }} />
+                          <span className="text-sm font-medium text-slate-900">{row.label}</span>
                         </div>
                       </td>
-                      <td className="text-right py-3 px-4 text-sm font-semibold text-gray-900">
-                        {row.count}
-                      </td>
-                      <td className="text-right py-3 px-4 text-sm text-gray-600">
-                        {row.percentage}%
-                      </td>
-                      <td className="text-right py-3 px-4 text-sm">
-                        <span
-                          className={
-                            (row.variation || 0) > 0
-                              ? "text-green-600 font-semibold"
-                              : "text-red-600 font-semibold"
-                          }
-                        >
-                          {(row.variation || 0) > 0 ? "+" : ""}
-                          {row.variation || 0}%
+                      <td className="px-4 py-4 text-right text-sm font-semibold text-slate-900">{row.count}</td>
+                      <td className="px-4 py-4 text-right text-sm text-slate-600">{row.percentage}%</td>
+                      <td className="px-4 py-4 text-right text-sm font-semibold">
+                        <span className={(row.variation || 0) > 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                          {(row.variation || 0) > 0 ? '+' : ''}{row.variation || 0}%
                         </span>
                       </td>
                     </tr>
@@ -512,28 +467,14 @@ export const MarketingAnalystDashboard: React.FC = () => {
               </table>
             </div>
 
-            {/* Segment Details */}
-            {selectedSegment && (
-              <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                <p className="text-sm text-indigo-900">
-                  <span className="font-semibold">
-                    {analysisData
-                      .find((r) => r.range === selectedSegment)
-                      ?.label.split(" ")[0]}{" "}
-                  </span>
-                  Pasajeros Seleccionados:{" "}
-                  <span className="font-bold">
-                    {
-                      analysisData.find((r) => r.range === selectedSegment)
-                        ?.count
-                    }
-                  </span>
-                </p>
+            {selectedSegmentData && (
+              <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <span className="font-semibold">{selectedSegmentData.label}</span> · Pasajeros seleccionados: <span className="font-bold">{selectedSegmentData.count}</span>
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 };

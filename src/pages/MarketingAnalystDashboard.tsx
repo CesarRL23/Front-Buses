@@ -1,22 +1,44 @@
-import React, { useState, useEffect } from "react";
-import { Calendar, Download, Filter, PieChart as PieIcon, TrendingUp, BarChart3, Sparkles } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Calendar, Download, PieChart as PieIcon, TrendingUp, BarChart3, Sparkles } from "lucide-react";
 import { Navbar } from "../components/Navbar";
 import { StatsCard, MetricBadge, QuickActionButton, EmptyState } from "../components/DashboardComponents";
-import { marketingAnalysisService, PassengerByAgeRange, AgeRange } from "../services/marketingAnalysisService";
+import {
+  marketingAnalysisService,
+  PassengerByAgeRange,
+  AgeRange,
+  AgeSegmentRange,
+  UNKNOWN_AGE_RANGE,
+} from "../services/marketingAnalysisService";
 
 
 // Color palette
-const COLORS = {
-  [AgeRange.MINORS]: "#3B82F6", // Blue
-  [AgeRange.YOUNG]: "#8B5CF6", // Purple
-  [AgeRange.YOUNG_ADULTS]: "#EC4899", // Pink
-  [AgeRange.ADULTS]: "#F97316", // Orange
-  [AgeRange.SENIORS]: "#EF4444", // Red
+const PIE_COLORS = {
+  [AgeRange.MINORS]: "#0EA5E9",
+  [AgeRange.YOUNG]: "#8B5CF6",
+  [AgeRange.YOUNG_ADULTS]: "#EC4899",
+  [AgeRange.ADULTS]: "#F97316",
+  [AgeRange.SENIORS]: "#EF4444",
+  [UNKNOWN_AGE_RANGE]: "#64748B",
+};
+
+const BADGE_COLORS = {
+  [AgeRange.MINORS]: "bg-sky-500",
+  [AgeRange.YOUNG]: "bg-violet-500",
+  [AgeRange.YOUNG_ADULTS]: "bg-pink-500",
+  [AgeRange.ADULTS]: "bg-orange-500",
+  [AgeRange.SENIORS]: "bg-red-500",
+  [UNKNOWN_AGE_RANGE]: "bg-slate-500",
+};
+
+type RouteOption = {
+  id: number;
+  nombre?: string;
+  name?: string;
 };
 
 interface PieChartProps {
   data: PassengerByAgeRange[];
-  onSegmentClick?: (range: AgeRange) => void;
+  onSegmentClick?: (range: AgeSegmentRange) => void;
 }
 
 const PieChart: React.FC<PieChartProps> = ({ data, onSegmentClick }) => {
@@ -24,10 +46,15 @@ const PieChart: React.FC<PieChartProps> = ({ data, onSegmentClick }) => {
   const radius = 100;
   const cx = size / 2;
   const cy = size / 2;
+  const total = data.reduce((sum, segment) => sum + segment.count, 0);
+
+  if (total <= 0) {
+    return null;
+  }
 
   let currentAngle = -90;
   const slices = data.map((segment) => {
-    const sliceAngle = (segment.count / data.reduce((sum, s) => sum + s.count, 0)) * 360;
+    const sliceAngle = (segment.count / total) * 360;
     const startAngle = currentAngle;
     const endAngle = currentAngle + sliceAngle;
     currentAngle = endAngle;
@@ -57,7 +84,7 @@ const PieChart: React.FC<PieChartProps> = ({ data, onSegmentClick }) => {
 
     return {
       path,
-      color: COLORS[segment.range],
+      color: PIE_COLORS[segment.range],
       segment,
       labelX,
       labelY,
@@ -94,31 +121,26 @@ const PieChart: React.FC<PieChartProps> = ({ data, onSegmentClick }) => {
 
 interface AnalystStats {
   totalPassengers: number;
-  averageAge: number;
+  averageAge: number | null;
   dominantSegment: PassengerByAgeRange | null;
 }
 
 export const MarketingAnalystDashboard: React.FC = () => {
   const [analysisData, setAnalysisData] = useState<PassengerByAgeRange[]>([]);
-  const [selectedSegment, setSelectedSegment] = useState<AgeRange | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<AgeSegmentRange | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
-  const [routes, setRoutes] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<AnalystStats>({
     totalPassengers: 0,
-    averageAge: 0,
+    averageAge: null,
     dominantSegment: null,
   });
   
 
-  useEffect(() => {
-    loadData();
-    loadRoutes();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const result = await marketingAnalysisService.getPassengersByAgeRange(startDate, endDate, selectedRoute || undefined);
@@ -134,9 +156,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
 
       // Calculate average age (would be done better server-side)
       const citizens = await marketingAnalysisService.getCitizensWithAge();
-      const avgAge = citizens.length
-        ? Math.round(citizens.reduce((sum: number, c: any) => sum + (c.age || 0), 0) / citizens.length)
-        : 0;
+      const avgAge = marketingAnalysisService.getAverageAge(citizens);
 
       setStats({
         totalPassengers,
@@ -148,16 +168,21 @@ export const MarketingAnalystDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [endDate, selectedRoute, startDate]);
 
-  const loadRoutes = async () => {
+  const loadRoutes = useCallback(async () => {
     try {
       const routesData = await marketingAnalysisService.getRoutes();
       setRoutes(routesData);
     } catch (error) {
       console.error("Error loading routes:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    loadRoutes();
+  }, [loadData, loadRoutes]);
 
   const handleDateFilter = () => {
     loadData();
@@ -225,6 +250,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
   };
 
   const selectedSegmentData = analysisData.find((row) => row.range === selectedSegment) || null;
+  const averageAgeLabel = stats.averageAge !== null ? `${stats.averageAge} años` : 'Sin Informacion';
 
   if (loading) {
     return (
@@ -265,7 +291,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
               </div>
               <div className="flex flex-wrap gap-2">
                 <MetricBadge label="Total pasajeros" value={stats.totalPassengers} color="blue" size="sm" icon={PieIcon} />
-                <MetricBadge label="Edad promedio" value={`${stats.averageAge} años`} color="green" size="sm" icon={TrendingUp} />
+                <MetricBadge label="Edad promedio" value={averageAgeLabel} color="green" size="sm" icon={TrendingUp} />
                 <MetricBadge label="Segmento líder" value={stats.dominantSegment ? stats.dominantSegment.label : 'Sin datos'} color="purple" size="sm" />
               </div>
             </div>
@@ -292,8 +318,8 @@ export const MarketingAnalystDashboard: React.FC = () => {
           />
           <StatsCard
             title="Edad promedio"
-            value={`${stats.averageAge} años`}
-            subtitle="Promedio calculado sobre ciudadanos disponibles"
+            value={averageAgeLabel}
+            subtitle="Promedio calculado solo con ciudadanos que tienen edad registrada"
             icon={TrendingUp}
             bgColor="bg-emerald-50"
             textColor="text-emerald-700"
@@ -386,7 +412,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
             </div>
 
             <div id="pie-chart-svg" className="mt-6">
-              {analysisData.length > 0 ? (
+              {analysisData.some((item) => item.count > 0) ? (
                 <PieChart data={analysisData} onSegmentClick={setSelectedSegment} />
               ) : (
                 <EmptyState
@@ -408,7 +434,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[item.range] }} />
+                          <span className={`h-3 w-3 rounded-full ${BADGE_COLORS[item.range]}`} />
                   <span className="text-sm font-medium text-slate-800">{item.label}</span>
                   <span className="ml-auto text-sm font-semibold text-slate-900">{item.percentage}%</span>
                 </button>
@@ -450,7 +476,7 @@ export const MarketingAnalystDashboard: React.FC = () => {
                     >
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
-                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[row.range] }} />
+                          <span className={`h-3 w-3 rounded-full ${BADGE_COLORS[row.range]}`} />
                           <span className="text-sm font-medium text-slate-900">{row.label}</span>
                         </div>
                       </td>

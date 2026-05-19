@@ -18,7 +18,7 @@ export const Profile: React.FC = () => {
     lastName: user?.lastName || '',
     email: user?.email || '',
     phoneNumber: user?.phoneNumber || '',
-    edad: 0,
+    edad: null as number | null,
   });
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export const Profile: React.FC = () => {
         const p = await businessService.findPersonByUserId(user.id, token);
         if (p) {
           setPerson(p);
-          setFormData(prev => ({ ...prev, edad: p.edad || 0 }));
+          setFormData(prev => ({ ...prev, edad: p.edad ?? null }));
         }
       } catch (e) {
         console.warn('No se pudo obtener person:', e);
@@ -45,7 +45,7 @@ export const Profile: React.FC = () => {
   };
 
   const calculateAge = (dateStr: string) => {
-    if (!dateStr) return 0;
+    if (!dateStr) return null;
     const today = new Date();
     const dob = new Date(dateStr);
     let years = today.getFullYear() - dob.getFullYear();
@@ -92,7 +92,7 @@ export const Profile: React.FC = () => {
       lastName: user?.lastName || '',
       email: user?.email || '',
       phoneNumber: user?.phoneNumber || '',
-      edad: person?.edad || 0,
+      edad: person?.edad ?? null,
     });
     setBirthDate('');
     setIsEditing(false);
@@ -228,6 +228,7 @@ export const Profile: React.FC = () => {
                     value={birthDate}
                     onChange={handleBirthDateChange}
                     disabled={!isEditing}
+                    title="Fecha de nacimiento"
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
                       isEditing ? 'bg-white border-gray-300' : 'bg-gray-50 border-gray-200 cursor-not-allowed'
                     }`}
@@ -241,7 +242,9 @@ export const Profile: React.FC = () => {
                   <div className={`w-full px-4 py-2 border rounded-lg ${
                     isEditing ? 'bg-gray-50 border-gray-300' : 'bg-gray-50 border-gray-200'
                   }`}>
-                    <p className="text-gray-900 font-medium">{formData.edad} años</p>
+                    <p className="text-gray-900 font-medium">
+                      {formData.edad !== null && formData.edad !== undefined ? `${formData.edad} años` : 'Sin Informacion'}
+                    </p>
                   </div>
                 </div>
               </div>

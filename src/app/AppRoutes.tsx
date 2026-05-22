@@ -17,6 +17,7 @@ import { CiudadanoDashboard } from '../pages/CiudadanoDashboard';
 import { AdminEmpresaDashboard } from '../pages/AdminEmpresaDashboard';
 import { MarketingAnalystDashboard } from '../pages/MarketingAnalystDashboard';
 import { FinancialAdministratorDashboard } from '../pages/FinancialAdministratorDashboard';
+import { OperationsManagerDashboard } from '../pages/OperationsManagerDashboard';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -105,6 +106,15 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <MarketingAnalystDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/operations-manager"
+          element={
+            <PrivateRoute>
+              <OperationsManagerDashboard />
             </PrivateRoute>
           }
         />

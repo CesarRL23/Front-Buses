@@ -27,7 +27,14 @@ export const DashboardRedirect: React.FC = () => {
     })();
     if (roles.includes('CIUDADANO')) {
       navigate('/ciudadano', { replace: true });
-    } else if (roles.includes('GERENTE_OPERACIONES') || roles.includes('GERENTE')) {
+    } else if (
+      roles.includes('GERENTE_OPERACIONES') ||
+      roles.includes('OPERATIONS_MANAGER') ||
+      roles.includes('GERENTE DE OPERACIONES') ||
+      roles.includes('OPERATIONSMANAGER')
+    ) {
+      navigate('/operations-manager', { replace: true });
+    } else if (roles.includes('GERENTE')) {
       navigate('/gerente', { replace: true });
     } else if (
       roles.includes('ANALISTA_DE_MARKETING') ||
@@ -54,6 +61,9 @@ export const DashboardRedirect: React.FC = () => {
   if (
     roles.includes('CIUDADANO') ||
     roles.includes('GERENTE_OPERACIONES') ||
+    roles.includes('OPERATIONS_MANAGER') ||
+    roles.includes('GERENTE DE OPERACIONES') ||
+    roles.includes('OPERATIONSMANAGER') ||
     roles.includes('GERENTE') ||
     roles.includes('ANALISTA_DE_MARKETING') ||
     roles.includes('ANALISTA DE MARKETING') ||

@@ -34,20 +34,6 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     desc: 'Consulta de rutas',
     color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
   },
-  'ADMIN EMPRESA': {
-    path: '/admin-empresa',
-    icon: Building,
-    title: 'Admin Empresa',
-    desc: 'Gestión de rutas y buses',
-    color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
-  },
-  'ADMIN_EMPRESA': {
-    path: '/admin-empresa',
-    icon: Building,
-    title: 'Admin Empresa',
-    desc: 'Gestión de rutas y buses',
-    color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
-  },
   'ADMINEMPRESA': {
     path: '/admin-empresa',
     icon: Building,
@@ -55,138 +41,13 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     desc: 'Gestión de rutas y buses',
     color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
   },
-  'GERENTE': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE OPERACION': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE_OPERACION': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTEOPERACION': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE DE OPERACION': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE_DE_OPERACION': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE DE OPERACIONES': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE_DE_OPERACIONES': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE OPERACIONES': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTE_OPERACIONES': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
-  'GERENTEOPERACIONES': {
-    path: '/gerente',
-    icon: TrendingUp,
-    title: 'Gerente Operaciones',
-    desc: 'Tendencias e informes',
-    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
-  },
+  
   'ANALISTA DE MARKETING': {
     path: '/marketing-analyst',
     icon: TrendingUp,
     title: 'Analista de Marketing',
     desc: 'Análisis demográfico',
     color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
-  },
-  'ANALISTA_DE_MARKETING': {
-    path: '/marketing-analyst',
-    icon: TrendingUp,
-    title: 'Analista de Marketing',
-    desc: 'Análisis demográfico',
-    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
-  },
-  'ANALISTADEMARKETING': {
-    path: '/marketing-analyst',
-    icon: TrendingUp,
-    title: 'Analista de Marketing',
-    desc: 'Análisis demográfico',
-    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
-  },
-  'MARKETING_ANALYST': {
-    path: '/marketing-analyst',
-    icon: TrendingUp,
-    title: 'Analista de Marketing',
-    desc: 'Análisis demográfico',
-    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
-  },
-  'MARKETING ANALYST': {
-    path: '/marketing-analyst',
-    icon: TrendingUp,
-    title: 'Analista de Marketing',
-    desc: 'Análisis demográfico',
-    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
-  },
-  'MARKETINGANALYST': {
-    path: '/marketing-analyst',
-    icon: TrendingUp,
-    title: 'Analista de Marketing',
-    desc: 'Análisis demográfico',
-    color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
-  },
-  'FINANCIAL_ADMINISTRATOR': {
-    path: '/financial-administrator',
-    icon: TrendingUp,
-    title: 'Administrador Financiero',
-    desc: 'Ingresos por método de pago',
-    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
-  },
-  'ADMINISTRADOR_FINANCIERO': {
-    path: '/financial-administrator',
-    icon: TrendingUp,
-    title: 'Administrador Financiero',
-    desc: 'Ingresos por método de pago',
-    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
   },
   'ADMINISTRADOR FINANCIERO': {
     path: '/financial-administrator',
@@ -195,13 +56,14 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     desc: 'Ingresos por método de pago',
     color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
   },
-  'FINANCIALADMINISTRATOR': {
-    path: '/financial-administrator',
+  'GERENTE DE OPERACIONES': {
+    path: '/operations-manager',
     icon: TrendingUp,
-    title: 'Administrador Financiero',
-    desc: 'Ingresos por método de pago',
-    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
-  }
+    title: 'Gerente de Operaciones',
+    desc: 'Tendencias de incidentes',
+    color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+
 };
 
 const normalizeRole = (role: string) => role.toUpperCase().replace(/[_\s-]/g, ' ');

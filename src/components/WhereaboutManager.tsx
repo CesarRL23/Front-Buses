@@ -19,6 +19,155 @@ const initialForm = {
   activo: true,
 };
 
+interface WhereaboutPickerMapProps {
+  latitud: number | null;
+  longitud: number | null;
+  onPick: (latitud: number, longitud: number) => void;
+}
+
+const DEFAULT_CENTER: [number, number] = [5.0703, -75.5138];
+
+const roundCoordinate = (value: number) => Number(value.toFixed(7));
+
+const parseCoordinateInput = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isValidCoordinate = (lat: number | null, lng: number | null) => (
+  lat !== null
+  && lng !== null
+  && Number.isFinite(lat)
+  && Number.isFinite(lng)
+  && lat >= -90
+  && lat <= 90
+  && lng >= -180
+  && lng <= 180
+);
+
+const WhereaboutPickerMap: React.FC<WhereaboutPickerMapProps> = ({ latitud, longitud, onPick }) => {
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const mapInstanceRef = React.useRef<any>(null);
+  const markerRef = React.useRef<any>(null);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const loadLeaflet = async () => {
+      if (!document.getElementById('leaflet-css')) {
+        const link = document.createElement('link');
+        link.id = 'leaflet-css';
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+      }
+
+      if (!(window as any).L) {
+        await new Promise<void>((resolve) => {
+          if (document.getElementById('leaflet-js')) {
+            const check = setInterval(() => {
+              if ((window as any).L) {
+                clearInterval(check);
+                resolve();
+              }
+            }, 100);
+            return;
+          }
+
+          const script = document.createElement('script');
+          script.id = 'leaflet-js';
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+
+      const L = (window as any).L;
+      if (!L || !mapRef.current || mapInstanceRef.current) return;
+
+      const hasValidCoords = isValidCoordinate(latitud, longitud);
+      const mapCenter: [number, number] = hasValidCoords
+        ? [Number(latitud), Number(longitud)]
+        : DEFAULT_CENTER;
+
+      const map = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true });
+      mapInstanceRef.current = map;
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      map.setView(mapCenter, hasValidCoords ? 16 : 12);
+
+      const setMarker = (lat: number, lng: number, moveMap: boolean) => {
+        const position: [number, number] = [lat, lng];
+
+        if (!markerRef.current) {
+          markerRef.current = L.marker(position, { draggable: true }).addTo(map);
+          markerRef.current.on('dragend', () => {
+            const markerLatLng = markerRef.current?.getLatLng?.();
+            if (!markerLatLng) return;
+            onPick(roundCoordinate(markerLatLng.lat), roundCoordinate(markerLatLng.lng));
+          });
+        } else {
+          markerRef.current.setLatLng(position);
+        }
+
+        if (moveMap) {
+          map.setView(position, Math.max(map.getZoom(), 16));
+        }
+      };
+
+      if (hasValidCoords) {
+        setMarker(Number(latitud), Number(longitud), false);
+      }
+
+      map.on('click', (event: any) => {
+        const lat = roundCoordinate(event.latlng.lat);
+        const lng = roundCoordinate(event.latlng.lng);
+        setMarker(lat, lng, true);
+        onPick(lat, lng);
+      });
+    };
+
+    loadLeaflet();
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+      markerRef.current = null;
+    };
+  }, [latitud, longitud, onPick]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const marker = markerRef.current;
+    const L = (window as any).L;
+    if (!map || !L || !isValidCoordinate(latitud, longitud)) return;
+
+    const position: [number, number] = [Number(latitud), Number(longitud)];
+
+    if (!marker) {
+      markerRef.current = L.marker(position, { draggable: true }).addTo(map);
+      markerRef.current.on('dragend', () => {
+        const markerLatLng = markerRef.current?.getLatLng?.();
+        if (!markerLatLng) return;
+        onPick(roundCoordinate(markerLatLng.lat), roundCoordinate(markerLatLng.lng));
+      });
+    } else {
+      marker.setLatLng(position);
+    }
+
+    map.setView(position, Math.max(map.getZoom(), 16));
+  }, [latitud, longitud, onPick]);
+
+  return <div ref={mapRef} className="h-80 w-full rounded-2xl border border-emerald-200" style={{ zIndex: 1 }} />;
+};
+
 export const WhereaboutManager: React.FC = () => {
   const [whereabouts, setWhereabouts] = useState<Whereabout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +178,17 @@ export const WhereaboutManager: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Whereabout | null>(null);
   const [form, setForm] = useState(initialForm);
+
+  const mapLatitud = parseCoordinateInput(form.latitud);
+  const mapLongitud = parseCoordinateInput(form.longitud);
+
+  const handleMapPick = useCallback((latitud: number, longitud: number) => {
+    setForm((current) => ({
+      ...current,
+      latitud: String(latitud),
+      longitud: String(longitud),
+    }));
+  }, []);
 
   const loadWhereabouts = useCallback(async () => {
     setLoading(true);
@@ -80,10 +240,19 @@ export const WhereaboutManager: React.FC = () => {
     setError('');
     setSuccess('');
 
+    const latitud = Number(form.latitud);
+    const longitud = Number(form.longitud);
+
+    if (!isValidCoordinate(latitud, longitud)) {
+      setError('Selecciona una ubicación válida en el mapa o corrige latitud/longitud.');
+      setSaving(false);
+      return;
+    }
+
     const payload = {
       nombre: form.nombre.trim(),
-      latitud: Number(form.latitud),
-      longitud: Number(form.longitud),
+      latitud,
+      longitud,
       direccion: form.direccion.trim(),
       activo: form.activo,
     };
@@ -219,6 +388,19 @@ export const WhereaboutManager: React.FC = () => {
                 placeholder="Ej: -74.7812345"
                 required
               />
+            </div>
+            <div className="md:col-span-2 lg:col-span-3 space-y-2">
+              <label className="text-sm font-bold text-gray-700 ml-1">Ubicación en mapa</label>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3 space-y-2">
+                <WhereaboutPickerMap
+                  latitud={mapLatitud}
+                  longitud={mapLongitud}
+                  onPick={handleMapPick}
+                />
+                <p className="text-xs text-emerald-700 font-medium px-1">
+                  Haz clic sobre el mapa o arrastra el marcador para establecer las coordenadas del paradero.
+                </p>
+              </div>
             </div>
             <div className="md:col-span-2 lg:col-span-3 space-y-2">
               <label className="text-sm font-bold text-gray-700 ml-1">Dirección</label>

@@ -173,6 +173,34 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     title: 'Analista de Marketing',
     desc: 'Análisis demográfico',
     color: 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+  },
+  'FINANCIAL_ADMINISTRATOR': {
+    path: '/financial-administrator',
+    icon: TrendingUp,
+    title: 'Administrador Financiero',
+    desc: 'Ingresos por método de pago',
+    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
+  },
+  'ADMINISTRADOR_FINANCIERO': {
+    path: '/financial-administrator',
+    icon: TrendingUp,
+    title: 'Administrador Financiero',
+    desc: 'Ingresos por método de pago',
+    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
+  },
+  'ADMINISTRADOR FINANCIERO': {
+    path: '/financial-administrator',
+    icon: TrendingUp,
+    title: 'Administrador Financiero',
+    desc: 'Ingresos por método de pago',
+    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
+  },
+  'FINANCIALADMINISTRATOR': {
+    path: '/financial-administrator',
+    icon: TrendingUp,
+    title: 'Administrador Financiero',
+    desc: 'Ingresos por método de pago',
+    color: 'text-green-600 hover:bg-green-50 hover:text-green-700'
   }
 };
 

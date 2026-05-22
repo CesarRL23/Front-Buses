@@ -35,6 +35,13 @@ export const DashboardRedirect: React.FC = () => {
       roles.includes('MARKETING_ANALYST')
     ) {
       navigate('/marketing-analyst', { replace: true });
+    } else if (
+      roles.includes('FINANCIAL_ADMINISTRATOR') ||
+      roles.includes('ADMINISTRADOR_FINANCIERO') ||
+      roles.includes('ADMINISTRADOR FINANCIERO') ||
+      roles.includes('FINANCIALADMINISTRATOR')
+    ) {
+      navigate('/financial-administrator', { replace: true });
     } else {
       // stay on the central dashboard
       // no navigation here; Dashboard component will render below
@@ -50,7 +57,11 @@ export const DashboardRedirect: React.FC = () => {
     roles.includes('GERENTE') ||
     roles.includes('ANALISTA_DE_MARKETING') ||
     roles.includes('ANALISTA DE MARKETING') ||
-    roles.includes('MARKETING_ANALYST')
+    roles.includes('MARKETING_ANALYST') ||
+    roles.includes('FINANCIAL_ADMINISTRATOR') ||
+    roles.includes('ADMINISTRADOR_FINANCIERO') ||
+    roles.includes('ADMINISTRADOR FINANCIERO') ||
+    roles.includes('FINANCIALADMINISTRATOR')
   )
     return null; // already redirected
 

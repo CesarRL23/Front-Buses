@@ -18,6 +18,8 @@ import { AdminEmpresaDashboard } from '../pages/AdminEmpresaDashboard';
 import { MarketingAnalystDashboard } from '../pages/MarketingAnalystDashboard';
 import { FinancialAdministratorDashboard } from '../pages/FinancialAdministratorDashboard';
 import { OperationsManagerDashboard } from '../pages/OperationsManagerDashboard';
+import { CitizenChatPage } from '../pages/CitizenChatPage';
+import { ConductorChatPage } from '../pages/ConductorChatPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -84,6 +86,15 @@ export const AppRoutes: React.FC = () => {
         />
 
         <Route
+          path="/conductor/mensajes"
+          element={
+            <PrivateRoute>
+              <ConductorChatPage />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
           path="/ciudadano"
           element={
             <PrivateRoute>
@@ -133,6 +144,15 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <SupervisorDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/mensajes"
+          element={
+            <PrivateRoute>
+              <CitizenChatPage />
             </PrivateRoute>
           }
         />

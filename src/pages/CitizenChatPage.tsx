@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -37,12 +37,14 @@ interface ChatMessage {
 }
 
 interface Chat {
-  id: string;             // otherUserId (Spring ObjectId)
-  type: 'individual';
+  id: string;             // otherUserId (Spring ObjectId) or group-<id>
+  type: 'individual' | 'group';
+  groupId?: number;
   name: string;
   avatar: string;
   avatarColor: string;
   lastMessage: string;
+  lastMessageAt: string;
   time: string;
   unread: number;
   messages: ChatMessage[];
@@ -89,6 +91,11 @@ function fmtTime(iso: string) {
   return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function payloadToMsg(msg: MessagePayload, myUserId: string): ChatMessage {
   return {
     id: String(msg.id),
@@ -130,11 +137,32 @@ function buildChats(sent: MessagePayload[], received: MessagePayload[], myUserId
     const chat = map.get(otherId)!;
     chat.messages.push(payloadToMsg(msg, myUserId));
     chat.lastMessage = msg.contenido;
+    chat.lastMessageAt = msg.fechaDeEnvio;
     chat.time = fmtTime(msg.fechaDeEnvio);
     if (msg.emisor !== myUserId && !msg.leido) chat.unread++;
   }
 
   return Array.from(map.values());
+}
+
+function buildGroupChat(group: GroupDetails, msgs: MessagePayload[], myUserId: string): Chat {
+  const sorted = msgs
+    .slice()
+    .sort((a, b) => new Date(b.fechaDeEnvio).getTime() - new Date(a.fechaDeEnvio).getTime());
+  const last = sorted[0];
+  return {
+    id: `group-${group.id}`,
+    groupId: group.id,
+    type: 'group',
+    name: group.name,
+    avatar: group.imageUrl?.length === 1 || group.imageUrl?.length === 2 ? group.imageUrl : initials(group.name),
+    avatarColor: colorFor(String(group.id)),
+    lastMessage: last?.contenido || 'Sin mensajes todavía',
+    lastMessageAt: last?.fechaDeEnvio || '',
+    time: last ? fmtTime(last.fechaDeEnvio) : '',
+    unread: sorted.filter((msg) => msg.emisor !== myUserId && !msg.leido).length,
+    messages: sorted.map((msg) => payloadToMsg(msg, myUserId)),
+  };
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -152,9 +180,8 @@ const ChatListItem: React.FC<{ chat: Chat; active: boolean; onClick: () => void 
   <button
     type="button"
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left ${
-      active ? 'bg-blue-50 border border-blue-100' : 'hover:bg-gray-50 border border-transparent'
-    }`}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left ${active ? 'bg-blue-50 border border-blue-100' : 'hover:bg-gray-50 border border-transparent'
+      }`}
   >
     <Avatar chat={chat} />
     <div className="flex-1 min-w-0">
@@ -185,10 +212,15 @@ export const CitizenChatPage: React.FC = () => {
   const myUserId = user?.id ?? '';
 
   const [chats, setChats] = useState<Chat[]>([]);
+  const [groupChats, setGroupChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [groupChat, setGroupChat] = useState<GroupDetails | null>(null);
   const [groupMessages, setGroupMessages] = useState<ChatMessage[]>([]);
   const [groupLoading, setGroupLoading] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'unread' | 'individual' | 'group'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [search, setSearch] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -210,13 +242,13 @@ export const CitizenChatPage: React.FC = () => {
     const load = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [sentRes, receivedRes] = await Promise.all([
+        const [sentRes, receivedRes, groupsRes] = await Promise.all([
           axios.get<MessagePayload[]>(`${NEST_URL}/message/sent`, { headers }),
           axios.get<MessagePayload[]>(`${NEST_URL}/message/received`, { headers }),
+          axios.get<GroupDetails[]>(`${NEST_URL}/group/user/${myUserId}`, { headers }),
         ]);
-        const built = buildChats(sentRes.data, receivedRes.data, myUserId);
-        setChats(built);
 
+        const built = buildChats(sentRes.data, receivedRes.data, myUserId);
         const resolved = await Promise.all(
           built.map(async (chat) => {
             try {
@@ -231,7 +263,32 @@ export const CitizenChatPage: React.FC = () => {
             return chat;
           }),
         );
+
+        const groupChatsBuilt = await Promise.all(
+          groupsRes.data.map(async (group) => {
+            try {
+              const groupMessagesRes = await axios.get<MessagePayload[]>(`${NEST_URL}/message/group/${group.id}`, { headers });
+              return buildGroupChat(group, groupMessagesRes.data, myUserId);
+            } catch {
+              return {
+                id: `group-${group.id}`,
+                groupId: group.id,
+                type: 'group',
+                name: group.name,
+                avatar: group.imageUrl?.length === 1 || group.imageUrl?.length === 2 ? group.imageUrl : initials(group.name),
+                avatarColor: colorFor(String(group.id)),
+                lastMessage: 'Sin mensajes todavía',
+                lastMessageAt: '',
+                time: '',
+                unread: 0,
+                messages: [],
+              };
+            }
+          }),
+        );
+
         setChats(resolved);
+        setGroupChats(groupChatsBuilt);
       } catch {
         // silencioso — el usuario simplemente verá la lista vacía
       }
@@ -266,12 +323,12 @@ export const CitizenChatPage: React.FC = () => {
         return prev.map((c) =>
           c.id === otherId
             ? {
-                ...c,
-                messages: [...c.messages, newMsg],
-                lastMessage: msg.contenido,
-                time: fmtTime(msg.fechaDeEnvio),
-                unread: c.id === selectedChatId ? 0 : c.unread + 1,
-              }
+              ...c,
+              messages: [...c.messages, newMsg],
+              lastMessage: msg.contenido,
+              time: fmtTime(msg.fechaDeEnvio),
+              unread: c.id === selectedChatId ? 0 : c.unread + 1,
+            }
             : c,
         );
       }
@@ -317,13 +374,13 @@ export const CitizenChatPage: React.FC = () => {
       prev.map((c) =>
         c.id === otherId
           ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === 'pending' ? payloadToMsg(msg, myUserId) : m,
-              ),
-              lastMessage: msg.contenido,
-              time: fmtTime(msg.fechaDeEnvio),
-            }
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === 'pending' ? payloadToMsg(msg, myUserId) : m,
+            ),
+            lastMessage: msg.contenido,
+            time: fmtTime(msg.fechaDeEnvio),
+          }
           : c,
       ),
     );
@@ -476,11 +533,11 @@ export const CitizenChatPage: React.FC = () => {
         prev.map((c) =>
           c.id === selectedChatId
             ? {
-                ...c,
-                messages: [...c.messages, optimistic],
-                lastMessage: newMessage.trim(),
-                time: optimistic.time,
-              }
+              ...c,
+              messages: [...c.messages, optimistic],
+              lastMessage: newMessage.trim(),
+              time: optimistic.time,
+            }
             : c,
         ),
       );
@@ -512,9 +569,8 @@ export const CitizenChatPage: React.FC = () => {
 
           {/* ── Sidebar ──────────────────────────────────────────────── */}
           <aside
-            className={`${
-              sidebarOpen ? 'flex' : 'hidden md:flex'
-            } flex-col w-full md:w-80 lg:w-96 border-r border-gray-100 flex-shrink-0`}
+            className={`${sidebarOpen ? 'flex' : 'hidden md:flex'
+              } flex-col w-full md:w-80 lg:w-96 border-r border-gray-100 flex-shrink-0`}
           >
             {/* Sidebar header */}
             <div className="p-5 border-b border-gray-100">
@@ -559,8 +615,8 @@ export const CitizenChatPage: React.FC = () => {
                 <button className="flex-1 bg-blue-50 text-blue-700 font-bold py-2 rounded-xl text-xs border border-blue-100 transition shadow-sm">
                   Chats Personales
                 </button>
-                <button 
-                  onClick={() => navigate('/grupos')} 
+                <button
+                  onClick={() => navigate('/grupos')}
                   className="flex-1 bg-white text-gray-600 hover:text-blue-600 hover:bg-gray-50 font-bold py-2 rounded-xl text-xs border border-gray-200 transition"
                 >
                   Grupos de Usuarios
@@ -634,11 +690,10 @@ export const CitizenChatPage: React.FC = () => {
                   groupMessages.map((msg, idx) => (
                     <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
                       <div
-                        className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${
-                          msg.mine
+                        className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
                             ? 'bg-blue-600 text-white rounded-br-sm'
                             : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
-                        }`}
+                          }`}
                       >
                         <p className="text-sm leading-relaxed">{msg.text}</p>
                         {(msg.latitud != null && msg.longitud != null) && (
@@ -681,11 +736,10 @@ export const CitizenChatPage: React.FC = () => {
                   type="button"
                   title={pendingLocation ? 'Ubicación adjunta — clic para quitar' : 'Adjuntar ubicación actual'}
                   onClick={pendingLocation ? () => setPendingLocation(null) : handleRequestLocation}
-                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${
-                    pendingLocation
+                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${pendingLocation
                       ? 'bg-blue-100 text-blue-600'
                       : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
-                  }`}
+                    }`}
                 >
                   {loadingLocation ? (
                     <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -768,11 +822,10 @@ export const CitizenChatPage: React.FC = () => {
                 {selectedChat.messages.map((msg, idx) => (
                   <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${
-                        msg.mine
+                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
                           ? 'bg-blue-600 text-white rounded-br-sm'
                           : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
-                      }`}
+                        }`}
                     >
                       <p className="text-sm leading-relaxed">{msg.text}</p>
                       {(msg.latitud != null && msg.longitud != null) && (
@@ -808,11 +861,10 @@ export const CitizenChatPage: React.FC = () => {
                   type="button"
                   title={pendingLocation ? 'Ubicación adjunta — clic para quitar' : 'Adjuntar ubicación actual'}
                   onClick={pendingLocation ? () => setPendingLocation(null) : handleRequestLocation}
-                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${
-                    pendingLocation
+                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${pendingLocation
                       ? 'bg-blue-100 text-blue-600'
                       : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
-                  }`}
+                    }`}
                 >
                   {loadingLocation ? (
                     <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />

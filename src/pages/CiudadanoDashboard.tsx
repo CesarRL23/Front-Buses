@@ -11,9 +11,7 @@ import {
    Navigation,
    Search,
    Filter,
-   Clock,
    Bell,
-   TrendingUp,
    MessageCircle,
    Share2,
    AlertCircle,
@@ -27,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { RoutesExplorer } from '../components/RoutesExplorer';
 import { NearestStops } from '../components/NearestStops';
 import { RealTimeBusTracker } from '../components/RealTimeBusTracker';
-import { StatsCard, MetricBadge, ActivityFeed, QuickActionButton, EmptyState } from '../components/DashboardComponents';
+import { ActivityFeed, QuickActionButton} from '../components/DashboardComponents';
 import { TripDetailsModal } from '../components/TripDetailsModal';
 import { RechargeModal } from '../components/RechargeModal';
 import { AssociatePaymentMethodModal } from '../components/AssociatePaymentMethodModal';

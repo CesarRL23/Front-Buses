@@ -41,7 +41,7 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     desc: 'Gestión de rutas y buses',
     color: 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
   },
-  
+
   'ANALISTA DE MARKETING': {
     path: '/marketing-analyst',
     icon: TrendingUp,
@@ -113,18 +113,18 @@ export const Navbar: React.FC = () => {
     return user.roles.map(roleName => {
       const upperRole = roleName.toUpperCase();
       const normalizedKey = normalizeRoleKey(roleName);
-      
+
       // Intentar buscar por nombre exacto, luego normalizado con espacios, luego sin nada
-      const config = ROLE_CONFIG[upperRole] || 
-                     ROLE_CONFIG[normalizeRole(roleName)] || 
-                     ROLE_CONFIG[normalizedKey] || 
-                     {
-                       path: '/dashboard',
-                       icon: Shield,
-                       title: roleName,
-                       desc: 'Panel de control',
-                       color: 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
-                     };
+      const config = ROLE_CONFIG[upperRole] ||
+        ROLE_CONFIG[normalizeRole(roleName)] ||
+        ROLE_CONFIG[normalizedKey] ||
+      {
+        path: '/dashboard',
+        icon: Shield,
+        title: roleName,
+        desc: 'Panel de control',
+        color: 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
+      };
       return { ...config, id: roleName };
     });
   };
@@ -153,7 +153,7 @@ export const Navbar: React.FC = () => {
               </div>
             </div>
           </div>
- 
+
           <div className="flex items-center gap-2 sm:gap-3">
             {isAuthenticated ? (
               <>
@@ -175,7 +175,7 @@ export const Navbar: React.FC = () => {
                     </button>
 
                     {isDropdownOpen && (
-                      <div 
+                      <div
                         className="absolute right-0 mt-3 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]"
                       >
                         <div className="border-b border-slate-100 px-4 py-3">

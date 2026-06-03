@@ -141,9 +141,8 @@ const ChatListItem: React.FC<{ chat: Chat; active: boolean; onClick: () => void 
   <button
     type="button"
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left ${
-      active ? 'bg-blue-50 border border-blue-100' : 'hover:bg-gray-50 border border-transparent'
-    }`}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left ${active ? 'bg-blue-50 border border-blue-100' : 'hover:bg-gray-50 border border-transparent'
+      }`}
   >
     <Avatar chat={chat} />
     <div className="flex-1 min-w-0">
@@ -240,12 +239,12 @@ export const ConductorChatPage: React.FC = () => {
         return prev.map((c) =>
           c.id === otherId
             ? {
-                ...c,
-                messages: [...c.messages, newMsg],
-                lastMessage: msg.contenido,
-                time: fmtTime(msg.fechaDeEnvio),
-                unread: c.id === selectedChatId ? 0 : c.unread + 1,
-              }
+              ...c,
+              messages: [...c.messages, newMsg],
+              lastMessage: msg.contenido,
+              time: fmtTime(msg.fechaDeEnvio),
+              unread: c.id === selectedChatId ? 0 : c.unread + 1,
+            }
             : c,
         );
       }
@@ -282,13 +281,13 @@ export const ConductorChatPage: React.FC = () => {
       prev.map((c) =>
         c.id === otherId
           ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === 'pending' ? payloadToMsg(msg, myUserId) : m,
-              ),
-              lastMessage: msg.contenido,
-              time: fmtTime(msg.fechaDeEnvio),
-            }
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === 'pending' ? payloadToMsg(msg, myUserId) : m,
+            ),
+            lastMessage: msg.contenido,
+            time: fmtTime(msg.fechaDeEnvio),
+          }
           : c,
       ),
     );
@@ -406,11 +405,11 @@ export const ConductorChatPage: React.FC = () => {
       prev.map((c) =>
         c.id === selectedChatId
           ? {
-              ...c,
-              messages: [...c.messages, optimistic],
-              lastMessage: newMessage.trim(),
-              time: optimistic.time,
-            }
+            ...c,
+            messages: [...c.messages, optimistic],
+            lastMessage: newMessage.trim(),
+            time: optimistic.time,
+          }
           : c,
       ),
     );
@@ -441,9 +440,8 @@ export const ConductorChatPage: React.FC = () => {
 
           {/* ── Sidebar ──────────────────────────────────────────────── */}
           <aside
-            className={`${
-              sidebarOpen ? 'flex' : 'hidden md:flex'
-            } flex-col w-full md:w-80 lg:w-96 border-r border-gray-100 flex-shrink-0`}
+            className={`${sidebarOpen ? 'flex' : 'hidden md:flex'
+              } flex-col w-full md:w-80 lg:w-96 border-r border-gray-100 flex-shrink-0`}
           >
             <div className="p-5 border-b border-gray-100">
               <div className="flex items-center justify-between mb-4">
@@ -542,11 +540,10 @@ export const ConductorChatPage: React.FC = () => {
                 {selectedChat.messages.map((msg, idx) => (
                   <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${
-                        msg.mine
+                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
                           ? 'bg-blue-600 text-white rounded-br-sm'
                           : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
-                      }`}
+                        }`}
                     >
                       <p className="text-sm leading-relaxed">{msg.text}</p>
                       {(msg.latitud != null && msg.longitud != null) && (
@@ -581,11 +578,10 @@ export const ConductorChatPage: React.FC = () => {
                   type="button"
                   title={pendingLocation ? 'Ubicación adjunta — clic para quitar' : 'Adjuntar ubicación actual'}
                   onClick={pendingLocation ? () => setPendingLocation(null) : handleRequestLocation}
-                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${
-                    pendingLocation
+                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${pendingLocation
                       ? 'bg-blue-100 text-blue-600'
                       : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
-                  }`}
+                    }`}
                 >
                   {loadingLocation ? (
                     <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />

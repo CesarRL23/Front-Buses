@@ -25,12 +25,35 @@ import {
 } from 'lucide-react';
 import { RoutesExplorer } from '../components/RoutesExplorer';
 import { NearestStops } from '../components/NearestStops';
+import { RealTimeBusTracker } from '../components/RealTimeBusTracker';
 import { StatsCard, MetricBadge, ActivityFeed, QuickActionButton, EmptyState } from '../components/DashboardComponents';
 import { TripDetailsModal } from '../components/TripDetailsModal';
 import { RechargeModal } from '../components/RechargeModal';
 import { AssociatePaymentMethodModal } from '../components/AssociatePaymentMethodModal';
 import { businessService } from '../services/businessService';
 import { useEffect } from 'react';
+
+const normalizeList = (payload: unknown): any[] => {
+   if (Array.isArray(payload)) return payload;
+   if (payload && typeof payload === 'object') {
+      if (Array.isArray((payload as any).data)) return (payload as any).data;
+      if (Array.isArray((payload as any).items)) return (payload as any).items;
+      if (Array.isArray((payload as any).results)) return (payload as any).results;
+      const nestedArrays = Object.values(payload as Record<string, unknown>).filter(Array.isArray);
+      if (nestedArrays.length > 0) return nestedArrays[0] as any[];
+   }
+   return [];
+};
+
+const getRouteId = (programming: any): number | string | null => {
+   const directRouteId = programming?.routeId ?? programming?.route_id ?? programming?.rutaId ?? programming?.ruta_id;
+   const nestedRouteId = programming?.route?.id ?? programming?.ruta?.id ?? programming?.route?.routeId ?? programming?.ruta?.routeId;
+   return directRouteId ?? nestedRouteId ?? null;
+};
+
+const getRouteName = (programming: any): string => {
+   return programming?.route?.nombre || programming?.ruta?.nombre || programming?.routeName || programming?.rutaNombre || 'Ruta General';
+};
 
 export const CiudadanoDashboard: React.FC = () => {
    const { user } = useAuth();
@@ -46,6 +69,8 @@ export const CiudadanoDashboard: React.FC = () => {
    // Estados del Simulador de Abordaje (HU-ENTR-2-003)
    const [programmings, setProgrammings] = useState<any[]>([]);
    const [nodes, setNodes] = useState<any[]>([]);
+   const [routes, setRoutes] = useState<any[]>([]);
+   const [selectedTrackerRouteId, setSelectedTrackerRouteId] = useState<string>('');
    const [selectedProg, setSelectedProg] = useState<string>('');
    const [selectedNode, setSelectedNode] = useState<string>('');
    const [descentNode, setDescentNode] = useState<string>('');
@@ -61,10 +86,17 @@ export const CiudadanoDashboard: React.FC = () => {
       if (isCiudadano) {
          const loadSimulationData = async () => {
             try {
-               const progs = await businessService.getSchedules();
-               const nds = await businessService.getNodos();
-               setProgrammings(Array.isArray(progs) ? progs : []);
-               setNodes(Array.isArray(nds) ? nds : []);
+               const [rawProgs, rawNodes, rawRoutes] = await Promise.all([
+                  businessService.getSchedules(),
+                  businessService.getNodos(),
+                  businessService.getRoutes(),
+               ]);
+               const normalizedProgrammings = normalizeList(rawProgs);
+               const normalizedNodes = normalizeList(rawNodes);
+               const normalizedRoutes = normalizeList(rawRoutes);
+               setProgrammings(normalizedProgrammings);
+               setNodes(normalizedNodes);
+               setRoutes(normalizedRoutes);
             } catch (err) {
                console.error("Error loading simulation data:", err);
             }
@@ -72,6 +104,37 @@ export const CiudadanoDashboard: React.FC = () => {
          loadSimulationData();
       }
    }, [isCiudadano]);
+
+   const trackerRouteOptions = React.useMemo(() => {
+      const routeList = routes.length > 0
+         ? routes
+         : Array.from(new Map(
+               programmings
+                  .map((programming) => {
+                     const routeId = getRouteId(programming);
+                     if (!routeId) return null;
+                     return {
+                        id: routeId,
+                        nombre: getRouteName(programming),
+                     };
+                  })
+                  .filter(Boolean)
+                  .map((route) => [String(route?.id), route])
+            ).values());
+
+      return routeList;
+   }, [routes, programmings]);
+
+   useEffect(() => {
+      if (trackerRouteOptions.length > 0) {
+         const currentExists = trackerRouteOptions.some((route) => String(route.id) === selectedTrackerRouteId);
+         if (!selectedTrackerRouteId || !currentExists) {
+            setSelectedTrackerRouteId(String(trackerRouteOptions[0].id));
+         }
+      } else if (selectedTrackerRouteId) {
+         setSelectedTrackerRouteId('');
+      }
+   }, [trackerRouteOptions, selectedTrackerRouteId]);
 
    // Cargar viaje activo guardado en localStorage
    useEffect(() => {
@@ -307,6 +370,10 @@ export const CiudadanoDashboard: React.FC = () => {
 
    const hasPaymentMethod = citizenData && citizenData.id !== 0 && citizenData.paymentMethods && citizenData.paymentMethods.length > 0;
    const activePaymentMethod = hasPaymentMethod ? citizenData.paymentMethods[0] : null;
+   const trackedProgrammings = programmings.filter((programming) => {
+      const routeId = getRouteId(programming);
+      return programming.activo !== false && String(routeId || '') === String(selectedTrackerRouteId);
+   });
 
    const balance = activePaymentMethod?.paymentMethod?.saldo !== undefined
       ? `$ ${Number(activePaymentMethod.paymentMethod.saldo).toLocaleString()} COP`
@@ -432,6 +499,41 @@ export const CiudadanoDashboard: React.FC = () => {
                         <Filter className="w-5 h-5" />
                         Filtros
                      </button>
+                  </section>
+
+                  {/* Seguimiento de buses en tiempo real */}
+                  <section className="space-y-4">
+                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                           <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Seguimiento de ruta</p>
+                           <h2 className="text-2xl font-black text-gray-900">Localiza buses en tiempo real</h2>
+                           <p className="text-gray-500 text-sm mt-1">Selecciona la ruta y revisa la ubicación de los buses activos, el paradero más cercano y el tiempo estimado de llegada.</p>
+                        </div>
+                        <div className="w-full lg:w-80">
+                           <label className="text-sm font-bold text-gray-700 block mb-2">Ruta a seguir</label>
+                           <select
+                              value={selectedTrackerRouteId}
+                              onChange={(e) => setSelectedTrackerRouteId(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                           >
+                              <option value="">Selecciona una ruta</option>
+                              {trackerRouteOptions.map((route) => (
+                                 <option key={String(route.id)} value={String(route.id)}>{route.nombre}</option>
+                              ))}
+                           </select>
+                        </div>
+                     </div>
+
+                     {selectedTrackerRouteId ? (
+                        <RealTimeBusTracker
+                           routeId={selectedTrackerRouteId}
+                           activeProgrammings={trackedProgrammings}
+                        />
+                     ) : (
+                        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
+                           Selecciona una ruta para ver el seguimiento en tiempo real de sus buses activos.
+                        </div>
+                     )}
                   </section>
 
                   {/* Featured Sections */}

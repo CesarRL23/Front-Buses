@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth';
+import { useNotification } from './NotificationContext';
 
 export interface MessagePayload {
   id: number;
@@ -48,6 +49,7 @@ const NEST_URL = 'http://localhost:3000';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, token } = useAuth();
+  const { addNotification } = useNotification();
   const socketRef = useRef<Socket | null>(null);
 
   const [connected, setConnected] = useState(false);
@@ -99,6 +101,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('message_error', (payload: { error: string; detail?: string }) => {
       const msg = payload.detail ? `${payload.error}: ${payload.detail}` : payload.error;
       setLastMessageError(msg);
+    });
+
+    socket.on('group_added', (payload: { groupId: number; groupName: string; addedBy: string }) => {
+      addNotification({
+        id: `group-${payload.groupId}-${Date.now()}`,
+        title: 'Nuevo Grupo',
+        message: `Te han añadido al grupo "${payload.groupName}"`,
+        routeName: 'Grupos',
+        placa: '---',
+        etaMinutes: 0,
+      });
     });
 
     return () => {

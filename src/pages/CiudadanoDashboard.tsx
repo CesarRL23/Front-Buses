@@ -520,25 +520,17 @@ export const CiudadanoDashboard: React.FC = () => {
                            <h2 className="text-2xl font-black text-gray-900">Localiza buses en tiempo real</h2>
                            <p className="text-gray-500 text-sm mt-1">Selecciona la ruta y revisa la ubicación de los buses activos, el paradero más cercano y el tiempo estimado de llegada.</p>
                         </div>
-                        <div className="w-full lg:w-80">
-                           <label className="text-sm font-bold text-gray-700 block mb-2">Ruta a seguir</label>
-                           <select
-                              value={selectedTrackerRouteId}
-                              onChange={(e) => setSelectedTrackerRouteId(e.target.value)}
-                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all"
-                           >
-                              <option value="">Selecciona una ruta</option>
-                              {trackerRouteOptions.map((route) => (
-                                 <option key={String(route.id)} value={String(route.id)}>{route.nombre}</option>
-                              ))}
-                           </select>
-                        </div>
+                        <div className="w-full lg:w-80" />
                      </div>
 
                      {selectedTrackerRouteId ? (
                         <RealTimeBusTracker
                            routeId={selectedTrackerRouteId}
                            activeProgrammings={trackedProgrammings}
+                           routeOptions={trackerRouteOptions}
+                           selectedRouteId={selectedTrackerRouteId}
+                           onSelectRoute={setSelectedTrackerRouteId}
+                           onPreparePayment={() => setIsAssociateOpen(true)}
                         />
                      ) : (
                         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">

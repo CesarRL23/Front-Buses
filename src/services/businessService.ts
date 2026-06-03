@@ -470,6 +470,37 @@ export const businessService = {
     const response = await businessApi.get(`/marketing-analyst/person/${personId}`);
     return response.data;
   },
+
+  // ══════════════════════════════
+  //  GROUPS
+  // ══════════════════════════════
+  getGroups: async () => {
+    const response = await businessApi.get('/group');
+    return response.data;
+  },
+
+  getGroupsByUserId: async (userId: string) => {
+    const response = await businessApi.get(`/group/user/${userId}`);
+    return response.data;
+  },
+
+  getGroupById: async (groupId: number) => {
+    const response = await businessApi.get(`/group/${groupId}`);
+    return response.data;
+  },
+
+  getGroupMessages: async (groupId: number) => {
+    const response = await businessApi.get(`/message/group/${groupId}`);
+    return response.data;
+  },
+
+  createGroup: async (data: any) => {
+    const response = await businessApi.post('/group', data);
+    return response.data;
+  },
+
+  searchPersons: async (query: string) => {
+    const response = await businessApi.get(`/person/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  },
 };
-
-

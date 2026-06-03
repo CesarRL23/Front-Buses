@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { businessService } from '../services/businessService';
@@ -19,6 +20,7 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 
 interface Shift {
@@ -40,6 +42,7 @@ interface Shift {
 
 export const ConductorDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isConductor = user?.roles?.some(r => r.toUpperCase() === 'CONDUCTOR') ?? false;
 
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -425,6 +428,26 @@ export const ConductorDashboard: React.FC = () => {
                  </button>
               </div>
             )}
+
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <p className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">Comunicación</p>
+                  <h3 className="text-2xl font-black text-gray-900">Chats del Conductor</h3>
+                  <p className="text-sm text-gray-500 mt-2 max-w-xl">
+                    Accede a conversaciones individuales y grupales con la misma vista que usas para operar.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/conductor/mensajes')}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <MessageSquare className="h-5 w-5" />
+                  Ver chats
+                </button>
+              </div>
+            </div>
 
             {/* Checklist and Maintenance Section */}
             {activeShift && (

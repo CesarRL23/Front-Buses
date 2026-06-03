@@ -23,6 +23,7 @@ import {
    Loader2,
    Sparkles,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { RoutesExplorer } from '../components/RoutesExplorer';
 import { NearestStops } from '../components/NearestStops';
 import { RealTimeBusTracker } from '../components/RealTimeBusTracker';
@@ -57,6 +58,7 @@ const getRouteName = (programming: any): string => {
 
 export const CiudadanoDashboard: React.FC = () => {
    const { user } = useAuth();
+   const navigate = useNavigate();
    const [showRoutes, setShowRoutes] = useState(false);
    const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
    const [isRechargeOpen, setIsRechargeOpen] = useState(false);
@@ -70,6 +72,7 @@ export const CiudadanoDashboard: React.FC = () => {
    const [programmings, setProgrammings] = useState<any[]>([]);
    const [nodes, setNodes] = useState<any[]>([]);
    const [routes, setRoutes] = useState<any[]>([]);
+   const [shifts, setShifts] = useState<any[]>([]);
    const [selectedTrackerRouteId, setSelectedTrackerRouteId] = useState<string>('');
    const [selectedProg, setSelectedProg] = useState<string>('');
    const [selectedNode, setSelectedNode] = useState<string>('');
@@ -86,10 +89,11 @@ export const CiudadanoDashboard: React.FC = () => {
       if (isCiudadano) {
          const loadSimulationData = async () => {
             try {
-               const [rawProgs, rawNodes, rawRoutes] = await Promise.all([
+               const [rawProgs, rawNodes, rawRoutes, rawShifts] = await Promise.all([
                   businessService.getSchedules(),
                   businessService.getNodos(),
                   businessService.getRoutes(),
+                  businessService.getShifts(),
                ]);
                const normalizedProgrammings = normalizeList(rawProgs);
                const normalizedNodes = normalizeList(rawNodes);
@@ -97,6 +101,8 @@ export const CiudadanoDashboard: React.FC = () => {
                setProgrammings(normalizedProgrammings);
                setNodes(normalizedNodes);
                setRoutes(normalizedRoutes);
+               const normalizedShifts = normalizeList(rawShifts);
+               setShifts(normalizedShifts);
             } catch (err) {
                console.error("Error loading simulation data:", err);
             }
@@ -370,10 +376,15 @@ export const CiudadanoDashboard: React.FC = () => {
 
    const hasPaymentMethod = citizenData && citizenData.id !== 0 && citizenData.paymentMethods && citizenData.paymentMethods.length > 0;
    const activePaymentMethod = hasPaymentMethod ? citizenData.paymentMethods[0] : null;
-   const trackedProgrammings = programmings.filter((programming) => {
-      const routeId = getRouteId(programming);
-      return programming.activo !== false && String(routeId || '') === String(selectedTrackerRouteId);
-   });
+   const trackedProgrammings = React.useMemo(() => {
+      // Solo programaciones activas y cuyo bus tenga un turno EN CURSO
+      const activeBusIds = new Set(shifts.filter((s: any) => String(s.estado).toUpperCase() === 'EN CURSO').map((s: any) => Number(s.bus?.id)));
+      return programmings.filter((programming) => {
+         const routeId = getRouteId(programming);
+         const busId = programming?.bus?.id || programming?.busId || programming?.bus_id;
+         return programming.activo !== false && String(routeId || '') === String(selectedTrackerRouteId) && activeBusIds.has(Number(busId));
+      });
+   }, [programmings, shifts, selectedTrackerRouteId]);
 
    const balance = activePaymentMethod?.paymentMethod?.saldo !== undefined
       ? `$ ${Number(activePaymentMethod.paymentMethod.saldo).toLocaleString()} COP`
@@ -667,35 +678,48 @@ export const CiudadanoDashboard: React.FC = () => {
                         </div>
                      </div>
 
-                     {/* Nearby Stop Info */}
-                     <div className="lg:col-span-4 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-3xl p-8 h-full flex flex-col justify-between">
-                        <div>
-                           <div className="bg-amber-100 w-fit p-3 rounded-xl mb-4">
-                              <MapPin className="h-6 w-6 text-amber-700" />
+                     {/* Mensajes / Chat Access */}
+                     <div className="lg:col-span-4 bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-800 rounded-3xl p-8 h-full flex flex-col justify-between text-white relative overflow-hidden group">
+                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/10 rounded-full blur-2xl pointer-events-none" />
+
+                        <div className="relative z-10">
+                           <div className="bg-white/15 backdrop-blur-md w-fit p-3 rounded-xl mb-5 border border-white/20">
+                              <MessageCircle className="h-6 w-6 text-white" />
                            </div>
-                           <h3 className="text-2xl font-black text-gray-900 mb-2">Parada Cercana</h3>
-                           <p className="text-amber-700 font-bold text-lg mb-4">{nearbyStop.name}</p>
-                           <div className="flex items-center gap-2 text-amber-600 font-semibold">
-                              <MapPin className="h-4 w-4" />
-                              A {nearbyStop.distance} de ti
+                           <h3 className="text-2xl font-black mb-2">Mensajes</h3>
+                           <p className="text-blue-100/80 text-sm leading-relaxed mb-6">
+                              Chatea con otros usuarios y participa en grupos de tu comunidad de transporte.
+                           </p>
+
+                           <div className="space-y-2 mb-6">
+                              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
+                                 <div className="w-8 h-8 bg-indigo-400 rounded-full flex items-center justify-center text-xs font-black">JD</div>
+                                 <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold truncate">Juan Díaz</p>
+                                    <p className="text-xs text-blue-200 truncate">¿A qué hora pasa la ruta 02?</p>
+                                 </div>
+                                 <span className="bg-blue-400 text-white text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">2</span>
+                              </div>
+                              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
+                                 <div className="w-8 h-8 bg-purple-400 rounded-full flex items-center justify-center text-xs font-black">🚌</div>
+                                 <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold truncate">Grupo Ruta 15</p>
+                                    <p className="text-xs text-blue-200 truncate">Bus demorado 10 min en Cll 80</p>
+                                 </div>
+                                 <span className="bg-pink-400 text-white text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">5</span>
+                              </div>
                            </div>
                         </div>
 
-                        <div className="mt-6 space-y-3">
-                           <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">Buses Próximos</p>
-                           {nearbyStop.busesIncomming.map((bus, idx) => (
-                              <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-xl border border-amber-100 hover:shadow-md transition">
-                                 <div>
-                                    <p className="font-bold text-gray-900">{bus.id}</p>
-                                    <p className="text-xs text-gray-500">{bus.route}</p>
-                                 </div>
-                                 <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-amber-600" />
-                                    <span className="font-bold text-amber-700">{bus.time}</span>
-                                 </div>
-                              </div>
-                           ))}
-                        </div>
+                        <button
+                           type="button"
+                           onClick={() => navigate('/mensajes')}
+                           className="relative z-10 w-full bg-white text-blue-700 font-black py-3.5 rounded-xl hover:bg-blue-50 transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 text-sm"
+                        >
+                           <MessageCircle className="w-4 h-4" />
+                           Abrir Mensajes
+                        </button>
                      </div>
                   </section>
 

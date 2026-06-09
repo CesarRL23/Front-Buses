@@ -21,6 +21,7 @@ import { OperationsManagerDashboard } from '../pages/OperationsManagerDashboard'
 import { CitizenChatPage } from '../pages/CitizenChatPage';
 import { ConductorChatPage } from '../pages/ConductorChatPage';
 import { GroupsPage } from '../pages/GroupsPage';
+import { CancelAppointment } from '../pages/CancelAppointment';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -166,6 +167,9 @@ export const AppRoutes: React.FC = () => {
             </PrivateRoute>
           }
         />
+
+        {/* Ruta pública para cancelar cita desde el link del correo */}
+        <Route path="/cancelar-cita/:id" element={<CancelAppointment />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

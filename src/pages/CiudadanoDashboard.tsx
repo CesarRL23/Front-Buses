@@ -31,6 +31,7 @@ import { RechargeModal } from '../components/RechargeModal';
 import { AssociatePaymentMethodModal } from '../components/AssociatePaymentMethodModal';
 import { businessService } from '../services/businessService';
 import { useEffect } from 'react';
+import { AppointmentScheduler } from '../components/AppointmentScheduler';
 
 const normalizeList = (payload: unknown): any[] => {
    if (Array.isArray(payload)) return payload;
@@ -1005,6 +1006,13 @@ export const CiudadanoDashboard: React.FC = () => {
                         }}
                      />
                   </section>
+
+                  {/* ── Agendamiento de Citas con Google Calendar (HU-ENTR-3-012) ── */}
+                  <AppointmentScheduler
+                     user={user}
+                     personData={personData}
+                     citizenData={citizenData}
+                  />
                </>
             )}
          </main>

@@ -503,4 +503,42 @@ export const businessService = {
     const response = await businessApi.get(`/person/search?q=${encodeURIComponent(query)}`);
     return response.data;
   },
+
+  // ══════════════════════════════
+  //  CITAS — HU-ENTR-3-012
+  // ══════════════════════════════
+
+  /** Devuelve disponibilidad agrupada por fecha para los próximos 10 días */
+  getAppointmentAvailability: async () => {
+    const response = await businessApi.get('/appointment/availability');
+    return response.data;
+  },
+
+  /** Lista las citas del ciudadano actual por su Firebase uid */
+  getMyAppointments: async (userId: string) => {
+    const response = await businessApi.get(`/appointment/user/${encodeURIComponent(userId)}`);
+    return response.data;
+  },
+
+  /** Crea una nueva cita y genera el evento en Google Calendar */
+  createAppointment: async (data: {
+    citizenId?: number;
+    citizenUserId?: string;
+    citizenEmail: string;
+    citizenName: string;
+    fecha: string;
+    hora: string;
+    tipoAtencion: 'PRESENCIAL' | 'VIRTUAL';
+    tipoConsulta: 'PROBLEMA_TARJETA' | 'RECLAMO' | 'REEMBOLSO' | 'OTRO';
+    motivo: string;
+  }) => {
+    const response = await businessApi.post('/appointment', data);
+    return response.data;
+  },
+
+  /** Cancela la cita y elimina el evento de Google Calendar */
+  cancelAppointment: async (id: number) => {
+    const response = await businessApi.delete(`/appointment/${id}`);
+    return response.data;
+  },
 };

@@ -80,7 +80,7 @@ const STATUS_LABELS: Record<string, string> = {
   CONFIRMADA: 'Confirmada',
   CANCELADA: 'Cancelada',
   PENDIENTE: 'Pendiente',
-  COMPLETADA: 'Completada',
+  COMPLETADA: 'Realizada ✓',
 };
 
 const STATUS_COLORS: Record<string, string> = {

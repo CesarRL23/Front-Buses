@@ -541,4 +541,28 @@ export const businessService = {
     const response = await businessApi.delete(`/appointment/${id}`);
     return response.data;
   },
+
+  // ── Alertas de clima ──────────────────────────────────────────────────────
+
+  getWeatherAlert: async (citizenUserId: string) => {
+    const response = await businessApi.get(`/weather-alert/user/${citizenUserId}`);
+    return response.data;
+  },
+
+  saveWeatherAlert: async (data: {
+    citizenUserId: string;
+    email: string;
+    name: string;
+    enabled: boolean;
+    travelTime: string;
+    city: string;
+  }) => {
+    const response = await businessApi.post('/weather-alert', data);
+    return response.data;
+  },
+
+  updateWeatherAlert: async (id: number, data: { enabled?: boolean; travelTime?: string; city?: string }) => {
+    const response = await businessApi.patch(`/weather-alert/${id}`, data);
+    return response.data;
+  },
 };

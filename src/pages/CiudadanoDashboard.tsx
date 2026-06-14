@@ -20,6 +20,9 @@ import {
    ArrowRight,
    Loader2,
    Sparkles,
+   ChevronDown,
+   Calendar,
+   CloudRain,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { RoutesExplorer } from '../components/RoutesExplorer';
@@ -32,6 +35,7 @@ import { AssociatePaymentMethodModal } from '../components/AssociatePaymentMetho
 import { businessService } from '../services/businessService';
 import { useEffect } from 'react';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
+import { WeatherAlertSettings } from '../components/WeatherAlertSettings';
 
 const normalizeList = (payload: unknown): any[] => {
    if (Array.isArray(payload)) return payload;
@@ -82,6 +86,15 @@ export const CiudadanoDashboard: React.FC = () => {
    const [activeTrip, setActiveTrip] = useState<any>(null);
 
    const isCiudadano = user?.roles?.some(r => r.toUpperCase() === 'CIUDADANO') ?? false;
+
+   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['favoritos']));
+   const toggleSection = (id: string) => {
+      setOpenSections(prev => {
+         const next = new Set(prev);
+         if (next.has(id)) next.delete(id); else next.add(id);
+         return next;
+      });
+   };
 
    // Cargar datos del simulador (programaciones y nodos)
    useEffect(() => {
@@ -511,44 +524,140 @@ export const CiudadanoDashboard: React.FC = () => {
                      </button>
                   </section>
 
-                  {/* Seguimiento de buses en tiempo real */}
-                  <section className="space-y-4">
-                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div>
-                           <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Seguimiento de ruta</p>
-                           <h2 className="text-2xl font-black text-gray-900">Localiza buses en tiempo real</h2>
-                           <p className="text-gray-500 text-sm mt-1">Selecciona la ruta y revisa la ubicación de los buses activos, el paradero más cercano y el tiempo estimado de llegada.</p>
-                        </div>
-                        <div className="w-full lg:w-80" />
+                  {/* ── 2-Column Main Layout ── */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                     {/* ── LEFT COLUMN: Accordions ── */}
+                     <div className="lg:col-span-5 space-y-3">
+
+                        {/* Accordion helper */}
+                        {[
+                           { id: 'favoritos',  label: 'Favoritos',              icon: Heart },
+                           { id: 'paraderos',  label: 'Paraderos Cercanos',     icon: MapPin },
+                           { id: 'mensajes',   label: 'Mensajes',               icon: MessageCircle },
+                           { id: 'viajes',     label: 'Viajes Recientes',       icon: History },
+                           { id: 'citas',      label: 'Agendamiento de Citas',  icon: Calendar },
+                           { id: 'clima',      label: 'Alertas de Clima',       icon: CloudRain },
+                        ].map(({ id, label, icon: Icon }) => (
+                           <div key={id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                              <button
+                                 onClick={() => toggleSection(id)}
+                                 className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+                              >
+                                 <span className="flex items-center gap-3 font-semibold text-gray-800 text-sm">
+                                    <Icon className="w-4 h-4 text-blue-500" />
+                                    {label}
+                                 </span>
+                                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.has(id) ? 'rotate-180' : ''}`} />
+                              </button>
+                              {openSections.has(id) && (
+                                 <div className="px-5 pb-5 border-t border-gray-50">
+                                    {id === 'favoritos' && (
+                                       <div className="space-y-3 pt-4">
+                                          {favorites.map((fav) => (
+                                             <div key={fav.id} className="group p-4 rounded-2xl bg-gray-50 border border-transparent hover:bg-white hover:border-gray-100 hover:shadow-md transition-all duration-300 cursor-pointer">
+                                                <div className="flex items-center justify-between">
+                                                   <div className="flex items-center gap-4">
+                                                      <div className={`${fav.color} p-3 rounded-lg text-white shadow-md`}>
+                                                         <Bus className="w-5 h-5" />
+                                                      </div>
+                                                      <div>
+                                                         <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm">{fav.name}</h4>
+                                                         <p className="text-xs font-medium text-gray-500">{fav.route}</p>
+                                                      </div>
+                                                   </div>
+                                                   <div className="text-right">
+                                                      <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Llega en</p>
+                                                      <p className="text-lg font-black text-blue-600">{fav.next}</p>
+                                                   </div>
+                                                </div>
+                                             </div>
+                                          ))}
+                                          <button className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2 font-bold text-sm">
+                                             <Star className="w-4 h-4" /> Agregar Destino
+                                          </button>
+                                       </div>
+                                    )}
+
+                                    {id === 'paraderos' && (
+                                       <div className="pt-4">
+                                          <NearestStops maxStops={5} onStopSelect={(stop) => { console.log('Stop selected:', stop); }} />
+                                       </div>
+                                    )}
+
+                                    {id === 'mensajes' && (
+                                       <div className="pt-4 space-y-3">
+                                          <div className="space-y-2 mb-4">
+                                             <div className="flex items-center gap-3 bg-indigo-50 rounded-xl px-4 py-3">
+                                                <div className="w-8 h-8 bg-indigo-400 rounded-full flex items-center justify-center text-xs font-black text-white">JD</div>
+                                                <div className="flex-1 min-w-0">
+                                                   <p className="text-sm font-bold truncate">Juan Díaz</p>
+                                                   <p className="text-xs text-gray-500 truncate">¿A qué hora pasa la ruta 02?</p>
+                                                </div>
+                                                <span className="bg-blue-500 text-white text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">2</span>
+                                             </div>
+                                             <div className="flex items-center gap-3 bg-indigo-50 rounded-xl px-4 py-3">
+                                                <div className="w-8 h-8 bg-purple-400 rounded-full flex items-center justify-center text-xs font-black text-white">🚌</div>
+                                                <div className="flex-1 min-w-0">
+                                                   <p className="text-sm font-bold truncate">Grupo Ruta 15</p>
+                                                   <p className="text-xs text-gray-500 truncate">Bus demorado 10 min en Cll 80</p>
+                                                </div>
+                                                <span className="bg-pink-400 text-white text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">5</span>
+                                             </div>
+                                          </div>
+                                          <button
+                                             type="button"
+                                             onClick={() => navigate('/mensajes')}
+                                             className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 text-sm"
+                                          >
+                                             <MessageCircle className="w-4 h-4" />
+                                             Abrir Mensajes
+                                          </button>
+                                       </div>
+                                    )}
+
+                                    {id === 'viajes' && (
+                                       <div className="pt-4">
+                                          <ActivityFeed
+                                             title=""
+                                             activities={recentTrips}
+                                             emptyMessage="No tienes viajes registrados recientemente"
+                                          />
+                                       </div>
+                                    )}
+
+                                    {id === 'citas' && (
+                                       <div className="pt-4">
+                                          <AppointmentScheduler
+                                             user={user}
+                                             personData={personData}
+                                             citizenData={citizenData}
+                                          />
+                                       </div>
+                                    )}
+
+                                    {id === 'clima' && user && (
+                                       <div className="pt-4">
+                                          <WeatherAlertSettings user={user} />
+                                       </div>
+                                    )}
+                                 </div>
+                              )}
+                           </div>
+                        ))}
                      </div>
 
-                     {selectedTrackerRouteId ? (
-                        <RealTimeBusTracker
-                           routeId={selectedTrackerRouteId}
-                           activeProgrammings={trackedProgrammings}
-                           routeOptions={trackerRouteOptions}
-                           selectedRouteId={selectedTrackerRouteId}
-                           onSelectRoute={setSelectedTrackerRouteId}
-                           onPreparePayment={() => setIsAssociateOpen(true)}
-                        />
-                     ) : (
-                        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
-                           Selecciona una ruta para ver el seguimiento en tiempo real de sus buses activos.
-                        </div>
-                     )}
-                  </section>
+                     {/* ── RIGHT COLUMN: Lo más importante ── */}
+                     <div className="lg:col-span-7 space-y-8">
 
-                  {/* Featured Sections */}
-                  <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                     {/* Digital Card - Balance */}
-                      {/* Digital Card - Balance */}
-                      {hasPaymentMethod ? (
+                        {/* Digital Card */}
+                        {hasPaymentMethod ? (
                          (() => {
                             const theme = getCardTheme(activePaymentMethod?.paymentMethod?.provider);
                             const rawAcc = activePaymentMethod?.paymentMethod?.accountNumber || '';
                             const formattedAcc = rawAcc.match(/.{1,4}/g)?.join(' ') || rawAcc;
                             return (
-                               <div className={`lg:col-span-4 bg-gradient-to-br ${theme.gradient} rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden flex flex-col justify-between group border border-white/5`}>
+                               <div className={`bg-gradient-to-br ${theme.gradient} rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden flex flex-col justify-between group border border-white/5`}>
                                   <div className="absolute -bottom-20 -right-20 bg-white/5 w-64 h-64 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000 animate-pulse pointer-events-none" />
                                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400" />
 
@@ -594,7 +703,7 @@ export const CiudadanoDashboard: React.FC = () => {
                          })()
                       ) : (
                          /* Unassociated Card Box */
-                         <div className="lg:col-span-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden flex flex-col justify-between group border border-indigo-500/20">
+                         <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 rounded-3xl shadow-2xl p-10 text-white relative overflow-hidden flex flex-col justify-between group border border-indigo-500/20">
                             <div className="absolute -bottom-20 -right-20 bg-indigo-500/10 w-64 h-64 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000 pointer-events-none" />
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
 
@@ -632,90 +741,31 @@ export const CiudadanoDashboard: React.FC = () => {
                          </div>
                       )}
 
-                     {/* Favorites Section */}
-                     <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-8 flex flex-col space-y-6">
-                        <div className="flex justify-between items-end">
-                           <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-                              <Heart className="w-7 h-7 text-pink-500 fill-pink-500" />
-                              Favoritos
-                           </h2>
-                           <button className="text-blue-600 hover:text-blue-700 font-bold text-sm hover:underline">Gestionar</button>
-                        </div>
-
-                        <div className="space-y-3 flex-1">
-                           {favorites.map((fav) => (
-                              <div key={fav.id} className="group p-4 rounded-2xl bg-gray-50 border border-transparent hover:bg-white hover:border-gray-100 hover:shadow-md transition-all duration-300 cursor-pointer">
-                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                       <div className={`${fav.color} p-3 rounded-lg text-white shadow-md`}>
-                                          <Bus className="w-5 h-5" />
-                                       </div>
-                                       <div>
-                                          <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm">{fav.name}</h4>
-                                          <p className="text-xs font-medium text-gray-500">{fav.route}</p>
-                                       </div>
-                                    </div>
-                                    <div className="text-right">
-                                       <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Llega en</p>
-                                       <p className="text-lg font-black text-blue-600">{fav.next}</p>
-                                    </div>
-                                 </div>
-                              </div>
-                           ))}
-
-                           <button className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2 font-bold text-sm">
-                              <Star className="w-4 h-4" /> Agregar Destino
-                           </button>
-                        </div>
-                     </div>
-
-                     {/* Mensajes / Chat Access */}
-                     <div className="lg:col-span-4 bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-800 rounded-3xl p-8 h-full flex flex-col justify-between text-white relative overflow-hidden group">
-                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/10 rounded-full blur-2xl pointer-events-none" />
-
-                        <div className="relative z-10">
-                           <div className="bg-white/15 backdrop-blur-md w-fit p-3 rounded-xl mb-5 border border-white/20">
-                              <MessageCircle className="h-6 w-6 text-white" />
+                        {/* Seguimiento en tiempo real */}
+                        <section className="space-y-4">
+                           <div>
+                              <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Seguimiento de ruta</p>
+                              <h2 className="text-2xl font-black text-gray-900">Localiza buses en tiempo real</h2>
+                              <p className="text-gray-500 text-sm mt-1">Selecciona la ruta y revisa la ubicación de los buses activos.</p>
                            </div>
-                           <h3 className="text-2xl font-black mb-2">Mensajes</h3>
-                           <p className="text-blue-100/80 text-sm leading-relaxed mb-6">
-                              Chatea con otros usuarios y participa en grupos de tu comunidad de transporte.
-                           </p>
-
-                           <div className="space-y-2 mb-6">
-                              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
-                                 <div className="w-8 h-8 bg-indigo-400 rounded-full flex items-center justify-center text-xs font-black">JD</div>
-                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold truncate">Juan Díaz</p>
-                                    <p className="text-xs text-blue-200 truncate">¿A qué hora pasa la ruta 02?</p>
-                                 </div>
-                                 <span className="bg-blue-400 text-white text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">2</span>
+                           {selectedTrackerRouteId ? (
+                              <RealTimeBusTracker
+                                 routeId={selectedTrackerRouteId}
+                                 activeProgrammings={trackedProgrammings}
+                                 routeOptions={trackerRouteOptions}
+                                 selectedRouteId={selectedTrackerRouteId}
+                                 onSelectRoute={setSelectedTrackerRouteId}
+                                 onPreparePayment={() => setIsAssociateOpen(true)}
+                              />
+                           ) : (
+                              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
+                                 Selecciona una ruta para ver el seguimiento en tiempo real de sus buses activos.
                               </div>
-                              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
-                                 <div className="w-8 h-8 bg-purple-400 rounded-full flex items-center justify-center text-xs font-black">🚌</div>
-                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold truncate">Grupo Ruta 15</p>
-                                    <p className="text-xs text-blue-200 truncate">Bus demorado 10 min en Cll 80</p>
-                                 </div>
-                                 <span className="bg-pink-400 text-white text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">5</span>
-                              </div>
-                           </div>
-                        </div>
+                           )}
+                        </section>
 
-                        <button
-                           type="button"
-                           onClick={() => navigate('/mensajes')}
-                           className="relative z-10 w-full bg-white text-blue-700 font-black py-3.5 rounded-xl hover:bg-blue-50 transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 text-sm"
-                        >
-                           <MessageCircle className="w-4 h-4" />
-                           Abrir Mensajes
-                        </button>
-                     </div>
-                  </section>
-
-                  {/* Boarding & Ticket Generation Simulator (HU-ENTR-2-003) */}
-                  <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 relative overflow-hidden">
+                        {/* Boarding & Ticket Generation Simulator */}
+                        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 relative overflow-hidden">
                      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
                      
                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
@@ -900,118 +950,40 @@ export const CiudadanoDashboard: React.FC = () => {
                      )}
                   </section>
 
-                  {/* Promotions & Tips Section */}
-                  <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     {/* Daily Tip Card */}
-                     <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-lg overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                        <div className="relative z-10">
-                           <div className="flex items-center gap-2 mb-4">
-                              <Zap className="w-5 h-5 text-yellow-300" />
-                              <span className="text-xs font-black uppercase tracking-wider text-blue-100">Consejo del Día</span>
-                           </div>
-                           <h3 className="text-2xl font-black mb-3">Activa notificaciones en tus rutas favoritas</h3>
-                           <p className="text-blue-100 text-sm leading-relaxed mb-6">
-                              Recibe alertas instantáneas sobre retrasos, desvíos o cambios en el horario de tus rutas frecuentes.
-                           </p>
-                           <button className="bg-white text-blue-600 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-all flex items-center gap-2 text-sm">
-                              <Bell className="w-4 h-4" />
-                              Activar Notificaciones
-                           </button>
-                        </div>
-                     </div>
+                     </div>{/* end right column */}
+                  </div>{/* end 2-col grid */}
 
-                     {/* Referral Card */}
-                     <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-lg overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                        <div className="relative z-10">
-                           <div className="flex items-center gap-2 mb-4">
-                              <Heart className="w-5 h-5 text-pink-200" />
-                              <span className="text-xs font-black uppercase tracking-wider text-pink-100">Referidos</span>
-                           </div>
-                           <h3 className="text-2xl font-black mb-3">Invita amigos y gana créditos</h3>
-                           <p className="text-pink-100 text-sm leading-relaxed mb-6">
-                              Obtén 2 viajes gratis por cada amigo que se registre usando tu código de referencia.
-                           </p>
-                           <button className="bg-white text-purple-600 font-bold px-6 py-3 rounded-xl hover:bg-pink-50 transition-all flex items-center gap-2 text-sm">
-                              <Share2 className="w-4 h-4" />
-                              Compartir Código
-                           </button>
-                        </div>
-                     </div>
-                  </section>
-
-                  {/* Nearest Stops Section - HU-ENTR-2-002 */}
-                  <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                     <NearestStops
-                        maxStops={5}
-                        onStopSelect={(stop) => {
-                           console.log('Stop selected:', stop);
-                           // Aquí puedes implementar acciones cuando se selecciona un paradero
-                           // Por ejemplo, mostrar rutas disponibles, reservar asiento, etc.
-                        }}
+                  {/* Modals (outside columns, render as overlays) */}
+                  {selectedTripId && (
+                     <TripDetailsModal
+                        ticketId={selectedTripId}
+                        onClose={() => setSelectedTripId(null)}
                      />
-                  </section>
-
-                  {/* Recent Trips Section */}
-                  <section>
-                     <div className="mb-6">
-                        <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-                           <History className="h-6 w-6 text-gray-600" />
-                           Viajes Recientes
-                        </h2>
-                     </div>
-                     <ActivityFeed
-                        title=""
-                        activities={recentTrips}
-                        emptyMessage="No tienes viajes registrados recientemente"
-                     />
-
-                     {/* Modal de Detalles del Viaje */}
-                     {selectedTripId && (
-                        <TripDetailsModal
-                           ticketId={selectedTripId}
-                           onClose={() => setSelectedTripId(null)}
-                        />
-                     )}
-
-                     {/* Modal de Recarga */}
-                     {citizenData && (
-                        <RechargeModal
-                           isOpen={isRechargeOpen}
-                           onClose={() => setIsRechargeOpen(false)}
-                           citizen={citizenData}
-                           onSuccess={(newBalance) => {
-                              if (citizenData.id === 0 && user?.id) {
-                                 localStorage.setItem(`sim_balance_${user.id}`, newBalance.toString());
-                              }
-                              setCitizenData({
-                                 ...citizenData,
-                                 paymentMethods: citizenData.paymentMethods.map((pm: any, idx: number) => 
-                                    idx === 0 ? { ...pm, paymentMethod: { ...pm.paymentMethod, saldo: newBalance } } : pm
-                                 )
-                              });
-                           }}
-                        />
-                     )}
-
-                     {/* Modal de Vinculación de Método de Pago */}
-                     <AssociatePaymentMethodModal
-                        isOpen={isAssociateOpen}
-                        onClose={() => setIsAssociateOpen(false)}
-                        person={personData}
+                  )}
+                  {citizenData && (
+                     <RechargeModal
+                        isOpen={isRechargeOpen}
+                        onClose={() => setIsRechargeOpen(false)}
                         citizen={citizenData}
-                        onSuccess={() => {
-                           fetchCitizen();
+                        onSuccess={(newBalance) => {
+                           if (citizenData.id === 0 && user?.id) {
+                              localStorage.setItem(`sim_balance_${user.id}`, newBalance.toString());
+                           }
+                           setCitizenData({
+                              ...citizenData,
+                              paymentMethods: citizenData.paymentMethods.map((pm: any, idx: number) =>
+                                 idx === 0 ? { ...pm, paymentMethod: { ...pm.paymentMethod, saldo: newBalance } } : pm
+                              )
+                           });
                         }}
                      />
-                  </section>
-
-                  {/* ── Agendamiento de Citas con Google Calendar (HU-ENTR-3-012) ── */}
-                  <AppointmentScheduler
-                     user={user}
-                     personData={personData}
-                     citizenData={citizenData}
+                  )}
+                  <AssociatePaymentMethodModal
+                     isOpen={isAssociateOpen}
+                     onClose={() => setIsAssociateOpen(false)}
+                     person={personData}
+                     citizen={citizenData}
+                     onSuccess={() => { fetchCitizen(); }}
                   />
                </>
             )}

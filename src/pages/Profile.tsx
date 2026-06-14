@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Navbar } from '../components/Navbar';
 import { FormInput } from '../components/FormInput';
 import { businessService } from '../services/businessService';
-import { User as UserIcon, Mail, Phone, Shield, CreditCard as Edit2, Save, X, Calendar } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Shield, CreditCard as Edit2, Save, X, Calendar, CloudRain, BellOff, Loader2 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
   const { user, updateProfile } = useAuth();
@@ -12,6 +12,9 @@ export const Profile: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [person, setPerson] = useState<any>(null);
   const [birthDate, setBirthDate] = useState<string>('');
+  const [weatherAlert, setWeatherAlert] = useState<any>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [unsubscribing, setUnsubscribing] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -24,18 +27,51 @@ export const Profile: React.FC = () => {
   useEffect(() => {
     (async () => {
       if (!user) return;
-      try {
-        const token = localStorage.getItem('auth_token');
-        const p = await businessService.findPersonByUserId(user.id, token);
-        if (p) {
-          setPerson(p);
-          setFormData(prev => ({ ...prev, edad: p.edad ?? null }));
-        }
-      } catch (e) {
-        console.warn('No se pudo obtener person:', e);
+      const token = localStorage.getItem('auth_token');
+
+      const [personResult, weatherResult] = await Promise.allSettled([
+        businessService.findPersonByUserId(user.id, token),
+        businessService.getWeatherAlert(user.id),
+      ]);
+
+      if (personResult.status === 'fulfilled' && personResult.value) {
+        setPerson(personResult.value);
+        setFormData(prev => ({ ...prev, edad: personResult.value.edad ?? null }));
       }
+
+      if (weatherResult.status === 'fulfilled' && weatherResult.value) {
+        setWeatherAlert(weatherResult.value);
+      }
+
+      setWeatherLoading(false);
     })();
   }, [user]);
+
+  const handleUnsubscribeWeather = async () => {
+    if (!user || !weatherAlert) return;
+    setUnsubscribing(true);
+    try {
+      await businessService.updateWeatherAlert(weatherAlert.id, { enabled: false });
+      setWeatherAlert({ ...weatherAlert, enabled: false });
+    } catch (e) {
+      console.error('Error al desactivar alerta:', e);
+    } finally {
+      setUnsubscribing(false);
+    }
+  };
+
+  const handleResubscribeWeather = async () => {
+    if (!user || !weatherAlert) return;
+    setUnsubscribing(true);
+    try {
+      await businessService.updateWeatherAlert(weatherAlert.id, { enabled: true });
+      setWeatherAlert({ ...weatherAlert, enabled: true });
+    } catch (e) {
+      console.error('Error al activar alerta:', e);
+    } finally {
+      setUnsubscribing(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -286,6 +322,50 @@ export const Profile: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* ── Alertas de Clima ── */}
+            {weatherLoading ? (
+              <div className="mt-8 pt-8 border-t border-gray-200">
+                <div className="h-6 w-40 bg-gray-200 rounded animate-pulse mb-4" />
+                <div className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+              </div>
+            ) : weatherAlert && (
+              <div className="mt-8 pt-8 border-t border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <CloudRain className="h-5 w-5 text-sky-500" />
+                  Alertas de Clima
+                </h3>
+                <div className="flex items-center justify-between p-4 bg-sky-50 border border-sky-100 rounded-xl">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {weatherAlert.enabled ? '🔔 Suscrito a alertas de clima' : '🔕 Alertas desactivadas'}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Ciudad: <strong>{weatherAlert.city}</strong> · Hora de viaje: <strong>{weatherAlert.travelTime}</strong>
+                    </p>
+                  </div>
+                  {weatherAlert.enabled ? (
+                    <button
+                      onClick={handleUnsubscribeWeather}
+                      disabled={unsubscribing}
+                      className="flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 font-semibold px-4 py-2 rounded-lg text-sm transition disabled:opacity-50"
+                    >
+                      {unsubscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
+                      Desactivar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleResubscribeWeather}
+                      disabled={unsubscribing}
+                      className="flex items-center gap-2 bg-sky-100 hover:bg-sky-200 text-sky-700 font-semibold px-4 py-2 rounded-lg text-sm transition disabled:opacity-50"
+                    >
+                      {unsubscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudRain className="h-4 w-4" />}
+                      Activar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 pt-8 border-t border-gray-200">
               <h3 className="text-xl font-bold text-gray-900 mb-4">

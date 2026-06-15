@@ -1,16 +1,19 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 type AppNotification = {
   id: string;
   title: string;
   message: string;
-  routeName: string;
-  placa: string;
-  etaMinutes: number;
+  routeName?: string;
+  placa?: string;
+  etaMinutes?: number;
   actionLabel?: string;
   onAction?: () => void;
   timestamp: number;
   read: boolean;
+  kind?: 'proximity' | 'announcement';
+  isUrgent?: boolean;
+  announcementId?: number;
 };
 
 interface NotificationContextValue {
@@ -20,6 +23,8 @@ interface NotificationContextValue {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
+  onMarkAnnouncementRead?: (announcementId: number) => void;
+  setOnMarkAnnouncementRead: (handler: (announcementId: number) => void) => void;
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
@@ -44,8 +49,20 @@ export const NotificationProvider: React.FC<React.PropsWithChildren<{}>> = ({ ch
     });
   }, []);
 
+  const onMarkAnnouncementReadRef = useRef<((announcementId: number) => void) | null>(null);
+
+  const setOnMarkAnnouncementRead = useCallback((handler: (announcementId: number) => void) => {
+    onMarkAnnouncementReadRef.current = handler;
+  }, []);
+
   const markAsRead = useCallback((id: string) => {
-    setNotifications((current) => current.map((item) => (item.id === id ? { ...item, read: true } : item)));
+    setNotifications((current) => current.map((item) => {
+      if (item.id !== id) return item;
+      if (!item.read && item.kind === 'announcement' && item.announcementId != null) {
+        onMarkAnnouncementReadRef.current?.(item.announcementId);
+      }
+      return { ...item, read: true };
+    }));
   }, []);
 
   const markAllAsRead = useCallback(() => {
@@ -63,7 +80,15 @@ export const NotificationProvider: React.FC<React.PropsWithChildren<{}>> = ({ ch
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification }}
+      value={{
+        notifications,
+        unreadCount,
+        addNotification,
+        markAsRead,
+        markAllAsRead,
+        removeNotification,
+        setOnMarkAnnouncementRead,
+      }}
     >
       {children}
     </NotificationContext.Provider>

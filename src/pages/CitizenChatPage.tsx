@@ -34,6 +34,8 @@ interface ChatMessage {
   readAt?: string;
   latitud?: number;
   longitud?: number;
+  messageType?: 'CHAT' | 'ANNOUNCEMENT';
+  isUrgent?: boolean;
 }
 
 interface Chat {
@@ -66,6 +68,7 @@ interface GroupDetails {
 }
 
 const NEST_URL = 'http://localhost:3000';
+const SYSTEM_ANNOUNCEMENTS_SENDER_ID = 'SYSTEM_ANNOUNCEMENTS';
 const AVATAR_COLORS = [
   'bg-indigo-500', 'bg-pink-500', 'bg-emerald-500',
   'bg-amber-500', 'bg-violet-500', 'bg-blue-500', 'bg-rose-500',
@@ -106,6 +109,8 @@ function payloadToMsg(msg: MessagePayload, myUserId: string): ChatMessage {
     readAt: msg.fechaLectura,
     latitud: msg.latitud,
     longitud: msg.longitud,
+    messageType: msg.messageType,
+    isUrgent: msg.isUrgent,
   };
 }
 
@@ -121,17 +126,31 @@ function buildChats(sent: MessagePayload[], received: MessagePayload[], myUserId
     if (!otherId) continue;
 
     if (!map.has(otherId)) {
-      map.set(otherId, {
-        id: otherId,
-        type: 'individual',
-        name: otherId.slice(-6),
-        avatar: '?',
-        avatarColor: colorFor(otherId),
-        lastMessage: '',
-        time: '',
-        unread: 0,
-        messages: [],
-      });
+      map.set(otherId, otherId === SYSTEM_ANNOUNCEMENTS_SENDER_ID
+        ? {
+          id: otherId,
+          type: 'individual',
+          name: 'Avisos del Sistema',
+          avatar: '📢',
+          avatarColor: 'bg-red-500',
+          lastMessage: '',
+          lastMessageAt: '',
+          time: '',
+          unread: 0,
+          messages: [],
+        }
+        : {
+          id: otherId,
+          type: 'individual',
+          name: otherId.slice(-6),
+          avatar: '?',
+          avatarColor: colorFor(otherId),
+          lastMessage: '',
+          lastMessageAt: '',
+          time: '',
+          unread: 0,
+          messages: [],
+        });
     }
 
     const chat = map.get(otherId)!;
@@ -251,6 +270,7 @@ export const CitizenChatPage: React.FC = () => {
         const built = buildChats(sentRes.data, receivedRes.data, myUserId);
         const resolved = await Promise.all(
           built.map(async (chat) => {
+            if (chat.id === SYSTEM_ANNOUNCEMENTS_SENDER_ID) return chat;
             try {
               const { data } = await axios.get<{ nombre: string }>(
                 `${NEST_URL}/person/by-user-id/${chat.id}`,
@@ -335,17 +355,31 @@ export const CitizenChatPage: React.FC = () => {
 
       // New conversation
       return [
-        {
-          id: otherId,
-          type: 'individual',
-          name: otherId.slice(-6),
-          avatar: '?',
-          avatarColor: colorFor(otherId),
-          lastMessage: msg.contenido,
-          time: fmtTime(msg.fechaDeEnvio),
-          unread: selectedChatId === otherId ? 0 : 1,
-          messages: [newMsg],
-        },
+        otherId === SYSTEM_ANNOUNCEMENTS_SENDER_ID
+          ? {
+            id: otherId,
+            type: 'individual' as const,
+            name: 'Avisos del Sistema',
+            avatar: '📢',
+            avatarColor: 'bg-red-500',
+            lastMessage: msg.contenido,
+            lastMessageAt: msg.fechaDeEnvio,
+            time: fmtTime(msg.fechaDeEnvio),
+            unread: selectedChatId === otherId ? 0 : 1,
+            messages: [newMsg],
+          }
+          : {
+            id: otherId,
+            type: 'individual' as const,
+            name: otherId.slice(-6),
+            avatar: '?',
+            avatarColor: colorFor(otherId),
+            lastMessage: msg.contenido,
+            lastMessageAt: msg.fechaDeEnvio,
+            time: fmtTime(msg.fechaDeEnvio),
+            unread: selectedChatId === otherId ? 0 : 1,
+            messages: [newMsg],
+          },
         ...prev,
       ];
     });
@@ -501,6 +535,7 @@ export const CitizenChatPage: React.FC = () => {
       avatar: initials(person.nombre),
       avatarColor: colorFor(person.userId),
       lastMessage: '',
+      lastMessageAt: '',
       time: '',
       unread: 0,
       messages: [],
@@ -820,13 +855,22 @@ export const CitizenChatPage: React.FC = () => {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-gray-50/40">
                 {selectedChat.messages.map((msg, idx) => (
-                  <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.messageType === 'ANNOUNCEMENT' ? 'justify-center' : msg.mine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
-                          ? 'bg-blue-600 text-white rounded-br-sm'
-                          : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
+                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.messageType === 'ANNOUNCEMENT'
+                          ? msg.isUrgent
+                            ? 'bg-red-50 text-red-900 border border-red-200'
+                            : 'bg-amber-50 text-amber-900 border border-amber-200'
+                          : msg.mine
+                            ? 'bg-blue-600 text-white rounded-br-sm'
+                            : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
                         }`}
                     >
+                      {msg.messageType === 'ANNOUNCEMENT' && msg.isUrgent && (
+                        <span className="inline-block mb-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                          Urgente
+                        </span>
+                      )}
                       <p className="text-sm leading-relaxed">{msg.text}</p>
                       {(msg.latitud != null && msg.longitud != null) && (
                         <a
@@ -853,6 +897,11 @@ export const CitizenChatPage: React.FC = () => {
               </div>
 
               {/* Input */}
+              {selectedChat.id === SYSTEM_ANNOUNCEMENTS_SENDER_ID ? (
+                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 text-center text-sm text-gray-500">
+                  Canal de solo lectura — no se puede responder
+                </div>
+              ) : (
               <form
                 onSubmit={handleSendMessage}
                 className="px-6 py-4 border-t border-gray-100 bg-white flex items-end gap-3"
@@ -901,8 +950,9 @@ export const CitizenChatPage: React.FC = () => {
                   <Send className="w-5 h-5" />
                 </button>
               </form>
+              )}
 
-              {pendingLocation && (
+              {pendingLocation && selectedChat.id !== SYSTEM_ANNOUNCEMENTS_SENDER_ID && (
                 <div className="px-6 pb-2 bg-white flex items-center gap-2 text-xs text-blue-600">
                   <MapPin className="w-3 h-3" />
                   Ubicación adjunta ({pendingLocation.latitud.toFixed(4)}, {pendingLocation.longitud.toFixed(4)})

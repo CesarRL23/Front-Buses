@@ -28,9 +28,11 @@ import {
   MapPin,
   Building,
   Search,
+  Megaphone,
 } from 'lucide-react';
 import { StatsCard, ActivityFeed, MetricBadge, QuickActionButton } from '../components/DashboardComponents';
 import { CompanyManager } from '../components/CompanyManager';
+import { AnnouncementManager } from '../components/AnnouncementManager';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Role { id: string; name: string; description?: string; }
@@ -116,7 +118,7 @@ export const AdminDashboard: React.FC = () => {
   const [rolePermissions, setRolePermissions] = useState<RolePermissionRecord[]>([]);
 
   // UI
-  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts' | 'empresas'>('users');
+  const [activeTab, setActiveTab]       = useState<'users' | 'roles' | 'permissions' | 'rolePerms' | 'whereabouts' | 'empresas' | 'announcements'>('users');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [success, setSuccess]           = useState('');
@@ -713,6 +715,7 @@ export const AdminDashboard: React.FC = () => {
             perms.canManagePerms ? { key: 'rolePerms', label: 'Asignaciones', icon: Lock } : null,
             isAdmin || perms.canManagePerms ? { key: 'whereabouts', label: 'Paraderos', icon: MapPin } : null,
             isAdmin ? { key: 'empresas', label: 'Empresas', icon: Building } : null,
+            isAdmin ? { key: 'announcements', label: 'Avisos Masivos', icon: Megaphone } : null,
           ].filter(Boolean) as any[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1619,6 +1622,15 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'empresas' && (
               <div className="space-y-6">
                 <CompanyManager />
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════
+                TAB: AVISOS MASIVOS
+            ══════════════════════════════════════════ */}
+            {activeTab === 'announcements' && (
+              <div className="space-y-6">
+                <AnnouncementManager />
               </div>
             )}
           </>

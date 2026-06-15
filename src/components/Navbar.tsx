@@ -240,26 +240,47 @@ export const Navbar: React.FC = () => {
                           {notifications.map((notification) => (
                             <div
                               key={notification.id}
-                              className="border-b border-slate-100 px-4 py-3"
+                              className={`border-b border-slate-100 px-4 py-3 ${
+                                notification.isUrgent ? 'bg-red-50' : ''
+                              }`}
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div>
-                                  <p className="text-sm font-semibold text-slate-900">{notification.title}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-slate-900">{notification.title}</p>
+                                    {notification.isUrgent && (
+                                      <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                        Urgente
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="mt-1 text-xs text-slate-500">{notification.message}</p>
-                                  <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                                    {notification.routeName} · {notification.placa} · {notification.etaMinutes} min
-                                  </p>
+                                  {notification.kind !== 'announcement' && (
+                                    <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                                      {notification.routeName} · {notification.placa} · {notification.etaMinutes} min
+                                    </p>
+                                  )}
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    markAsRead(notification.id);
-                                    notification.onAction?.();
-                                  }}
-                                  className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
-                                >
-                                  {notification.actionLabel ?? 'Ver'}
-                                </button>
+                                {notification.kind !== 'announcement' && (
+                                  <button
+                                    onClick={() => {
+                                      markAsRead(notification.id);
+                                      notification.onAction?.();
+                                    }}
+                                    className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
+                                  >
+                                    {notification.actionLabel ?? 'Ver'}
+                                  </button>
+                                )}
                               </div>
+                              {notification.kind === 'announcement' && !notification.read && (
+                                <button
+                                  onClick={() => markAsRead(notification.id)}
+                                  className="mt-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
+                                >
+                                  Marcar como leído
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>

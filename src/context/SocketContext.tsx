@@ -8,6 +8,7 @@ import React, {
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from './NotificationContext';
+import { businessService } from '../services/businessService';
 
 export interface MessagePayload {
   id: number;
@@ -19,11 +20,22 @@ export interface MessagePayload {
   fechaLectura?: string;
   latitud?: number;
   longitud?: number;
+  messageType?: 'CHAT' | 'ANNOUNCEMENT';
+  announcementId?: number;
+  isUrgent?: boolean;
 }
 
 export interface ReadReceiptPayload {
   messageId: number;
   fechaLectura: string;
+}
+
+export interface AnnouncementPayload {
+  id: number;
+  title: string;
+  message: string;
+  isUrgent: boolean;
+  createdAt: string;
 }
 
 interface SocketContextType {
@@ -49,7 +61,7 @@ const NEST_URL = 'http://localhost:3000';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, token } = useAuth();
-  const { addNotification } = useNotification();
+  const { addNotification, setOnMarkAnnouncementRead } = useNotification();
   const socketRef = useRef<Socket | null>(null);
 
   const [connected, setConnected] = useState(false);
@@ -114,12 +126,54 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
+    socket.on('announcement', (payload: AnnouncementPayload) => {
+      addNotification({
+        id: `announcement-${payload.id}`,
+        title: payload.title,
+        message: payload.message,
+        kind: 'announcement',
+        isUrgent: payload.isUrgent,
+        announcementId: payload.id,
+      });
+    });
+
+    socket.on('urgent_announcement', (payload: AnnouncementPayload) => {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(payload.title, { body: payload.message });
+      }
+    });
+
+    // Sincroniza avisos pendientes recibidos mientras el usuario estaba desconectado
+    businessService.getMyAnnouncements().then((announcements: any[]) => {
+      announcements.forEach((announcement) => {
+        if (announcement.read) return;
+        addNotification({
+          id: `announcement-${announcement.id}`,
+          title: announcement.title,
+          message: announcement.message,
+          kind: 'announcement',
+          isUrgent: announcement.isUrgent,
+          announcementId: announcement.id,
+        });
+      });
+    }).catch(() => {});
+
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
       setConnected(false);
     };
   }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    setOnMarkAnnouncementRead((announcementId: number) => {
+      businessService.markAnnouncementRead(announcementId).catch(() => {});
+    });
+  }, [setOnMarkAnnouncementRead]);
 
   const sendMessage = useCallback(
     (receptor: string, contenido: string, ubicacion?: { latitud: number; longitud: number }) => {

@@ -600,4 +600,51 @@ export const businessService = {
     const response = await businessApi.patch(`/pqrs/${id}/status`, data);
     return response.data;
   },
+
+  // ══════════════════════════════
+  //  AVISOS MASIVOS (ANNOUNCEMENTS)
+  // ══════════════════════════════
+  createAnnouncement: async (data: {
+    title: string;
+    message: string;
+    scope: 'ALL' | 'ROUTE' | 'ZONE';
+    scopeValue?: string;
+    isUrgent?: boolean;
+    scheduledFor?: string;
+  }) => {
+    const response = await businessApi.post('/announcements', data);
+    return response.data;
+  },
+
+  getRecipientsCount: async (scope: 'ALL' | 'ROUTE' | 'ZONE', scopeValue?: string) => {
+    const params: Record<string, string> = { scope };
+    if (scopeValue) params.scopeValue = scopeValue;
+    const response = await businessApi.get('/announcements/recipients-count', { params });
+    return response.data.count as number;
+  },
+
+  getAnnouncementZones: async () => {
+    const response = await businessApi.get('/announcements/zones');
+    return response.data as string[];
+  },
+
+  getAnnouncements: async () => {
+    const response = await businessApi.get('/announcements');
+    return response.data;
+  },
+
+  getAnnouncementStats: async (id: number) => {
+    const response = await businessApi.get(`/announcements/${id}/stats`);
+    return response.data;
+  },
+
+  getMyAnnouncements: async () => {
+    const response = await businessApi.get('/announcements/mine');
+    return response.data;
+  },
+
+  markAnnouncementRead: async (id: number) => {
+    const response = await businessApi.post(`/announcements/${id}/read`);
+    return response.data;
+  },
 };

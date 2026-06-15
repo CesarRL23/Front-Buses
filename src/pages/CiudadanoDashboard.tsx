@@ -11,9 +11,9 @@ import {
    Navigation,
    Search,
    Filter,
-   Bell,
+
    MessageCircle,
-   Share2,
+
    AlertCircle,
    CheckCircle,
    Zap,
@@ -36,6 +36,9 @@ import { businessService } from '../services/businessService';
 import { useEffect } from 'react';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import { WeatherAlertSettings } from '../components/WeatherAlertSettings';
+import { PqrsForm } from '../components/PqrsForm';
+import { PqrsStatus } from '../components/PqrsStatus';
+import { FileText, HelpCircle } from 'lucide-react';
 
 const normalizeList = (payload: unknown): any[] => {
    if (Array.isArray(payload)) return payload;
@@ -538,6 +541,8 @@ export const CiudadanoDashboard: React.FC = () => {
                            { id: 'viajes',     label: 'Viajes Recientes',       icon: History },
                            { id: 'citas',      label: 'Agendamiento de Citas',  icon: Calendar },
                            { id: 'clima',      label: 'Alertas de Clima',       icon: CloudRain },
+                           { id: 'pqrs',       label: 'Enviar PQRS',            icon: FileText },
+                           { id: 'pqrs-status',label: 'Consultar mi PQRS',      icon: HelpCircle },
                         ].map(({ id, label, icon: Icon }) => (
                            <div key={id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                               <button
@@ -639,6 +644,18 @@ export const CiudadanoDashboard: React.FC = () => {
                                     {id === 'clima' && user && (
                                        <div className="pt-4">
                                           <WeatherAlertSettings user={user} />
+                                       </div>
+                                    )}
+
+                                    {id === 'pqrs' && (
+                                       <div className="pt-4">
+                                          <PqrsForm user={user} />
+                                       </div>
+                                    )}
+
+                                    {id === 'pqrs-status' && (
+                                       <div className="pt-4">
+                                          <PqrsStatus />
                                        </div>
                                     )}
                                  </div>

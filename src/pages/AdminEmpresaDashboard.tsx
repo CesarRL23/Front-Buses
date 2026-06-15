@@ -24,7 +24,10 @@ import {
   Loader2,
   Navigation,
   CheckCircle2,
-  Calendar
+  Calendar,
+  FileText,
+  ChevronDown,
+  MessageSquare,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -82,7 +85,14 @@ export const AdminEmpresaDashboard: React.FC = () => {
   const { user } = useAuth();
   
   // State
-  const [activeTab, setActiveTab] = useState<'routes' | 'buses' | 'schedules' | 'incidentes'>('routes');
+  const [activeTab, setActiveTab] = useState<'routes' | 'buses' | 'schedules' | 'incidentes' | 'pqrs'>('routes');
+  const [pqrsList, setPqrsList] = useState<any[]>([]);
+  const [pqrsLoading, setPqrsLoading] = useState(false);
+  const [pqrsSelected, setPqrsSelected] = useState<any>(null);
+  const [pqrsStatus, setPqrsStatus] = useState('');
+  const [pqrsResponse, setPqrsResponse] = useState('');
+  const [pqrsSaving, setPqrsSaving] = useState(false);
+  const [pqrsPhotoModal, setPqrsPhotoModal] = useState<string | null>(null);
   const [selectedBusForIncidents, setSelectedBusForIncidents] = useState<{ id: number; placa: string } | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
@@ -225,6 +235,15 @@ export const AdminEmpresaDashboard: React.FC = () => {
 
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
   useEffect(() => { loadTabData(); }, [loadTabData]);
+
+  useEffect(() => {
+    if (activeTab !== 'pqrs') return;
+    setPqrsLoading(true);
+    businessService.getAllPqrs()
+      .then((data) => setPqrsList(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setPqrsLoading(false));
+  }, [activeTab]);
 
   const resetRouteForm = () => {
     setShowRouteForm(false);
@@ -557,13 +576,24 @@ export const AdminEmpresaDashboard: React.FC = () => {
           <button
             onClick={() => setActiveTab('incidentes')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
-              activeTab === 'incidentes' 
-                ? 'bg-white text-orange-600 shadow-sm' 
+              activeTab === 'incidentes'
+                ? 'bg-white text-orange-600 shadow-sm'
                 : 'text-gray-500 hover:bg-white/50'
             }`}
           >
             <AlertTriangle className="h-5 w-5" />
             Incidentes
+          </button>
+          <button
+            onClick={() => setActiveTab('pqrs')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
+              activeTab === 'pqrs'
+                ? 'bg-white text-orange-600 shadow-sm'
+                : 'text-gray-500 hover:bg-white/50'
+            }`}
+          >
+            <FileText className="h-5 w-5" />
+            PQRS
           </button>
         </div>
 
@@ -1150,9 +1180,232 @@ export const AdminEmpresaDashboard: React.FC = () => {
                 )}
               </div>
             )}
+            {/* ══════════════════════════════════════════
+                PQRS SECTION — HU-ENTR-3-012
+            ══════════════════════════════════════════ */}
+            {activeTab === 'pqrs' && (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
+                    <FileText className="h-6 w-6 text-orange-500" />
+                    Gestión de PQRS
+                  </h2>
+                  <p className="text-gray-500 text-sm mt-1">Revisa y actualiza el estado de las peticiones, quejas, reclamos y sugerencias.</p>
+                </div>
+
+                {pqrsLoading ? (
+                  <div className="flex items-center justify-center py-16 text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin mr-2" /> Cargando PQRS...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    {/* Lista */}
+                    <div className="lg:col-span-5 space-y-3">
+                      {pqrsList.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400">
+                          No hay PQRS registrados aún.
+                        </div>
+                      ) : pqrsList.map((p) => {
+                        const statusColor: Record<string, string> = {
+                          PENDIENTE:   'bg-gray-100 text-gray-600',
+                          EN_REVISION: 'bg-blue-100 text-blue-700',
+                          EN_PROCESO:  'bg-amber-100 text-amber-700',
+                          RESUELTO:    'bg-green-100 text-green-700',
+                        };
+                        const typeEmoji: Record<string, string> = {
+                          PETICION: '📝', QUEJA: '😟', RECLAMO: '⚖️', SUGERENCIA: '💡',
+                        };
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => { setPqrsSelected(p); setPqrsStatus(p.status); setPqrsResponse(p.agentResponse || ''); }}
+                            className={`w-full text-left bg-white rounded-2xl border p-4 transition-all hover:shadow-md ${
+                              pqrsSelected?.id === p.id ? 'border-orange-400 shadow-md' : 'border-gray-100'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-gray-900 font-mono">{p.radicado}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {typeEmoji[p.type]} {p.type} · {p.category}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1 truncate">{p.description}</p>
+                              </div>
+                              <span className={`text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 ${statusColor[p.status] || 'bg-gray-100 text-gray-600'}`}>
+                                {p.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-300 mt-2">
+                              {new Date(p.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {' · '}{p.email}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Detalle / Editor */}
+                    <div className="lg:col-span-7">
+                      {!pqrsSelected ? (
+                        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+                          <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                          Selecciona un PQRS de la lista para gestionarlo
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+                          {/* Info */}
+                          <div>
+                            <p className="text-xs font-bold text-orange-500 uppercase tracking-widest mb-1">Radicado</p>
+                            <p className="text-2xl font-black font-mono text-gray-900">{pqrsSelected.radicado}</p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-400">Tipo</p>
+                              <p className="font-semibold text-gray-800">{pqrsSelected.type}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Categoría</p>
+                              <p className="font-semibold text-gray-800">{pqrsSelected.category}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Ciudadano</p>
+                              <p className="font-semibold text-gray-800">{pqrsSelected.citizenName || '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Email</p>
+                              <p className="font-semibold text-gray-800 truncate">{pqrsSelected.email}</p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-gray-400 mb-1">Descripción</p>
+                            <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3 leading-relaxed">{pqrsSelected.description}</p>
+                          </div>
+
+                          {/* Fotos */}
+                          {pqrsSelected.photos?.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-400 mb-2">Fotos adjuntas</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {pqrsSelected.photos.map((photo: string, i: number) => (
+                                  <img
+                                    key={i}
+                                    src={photo}
+                                    alt={`foto ${i+1}`}
+                                    onClick={() => setPqrsPhotoModal(photo)}
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <hr className="border-gray-100" />
+
+                          {/* Cambiar estado */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {['PENDIENTE', 'EN_REVISION', 'EN_PROCESO', 'RESUELTO'].map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => setPqrsStatus(s)}
+                                  className={`py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                                    pqrsStatus === s
+                                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                                  }`}
+                                >
+                                  {s.replace('_', ' ')}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Respuesta del agente */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4" />
+                              Respuesta al ciudadano
+                              {pqrsStatus === 'RESUELTO' && <span className="text-red-500 font-normal">(requerida al resolver)</span>}
+                            </label>
+                            <textarea
+                              value={pqrsResponse}
+                              onChange={(e) => setPqrsResponse(e.target.value)}
+                              rows={3}
+                              placeholder="Escribe la respuesta o resolución para el ciudadano..."
+                              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none bg-gray-50"
+                            />
+                          </div>
+
+                          <button
+                            onClick={async () => {
+                              if (pqrsStatus === 'RESUELTO' && !pqrsResponse.trim()) {
+                                alert('Escribe una respuesta antes de marcar como Resuelto');
+                                return;
+                              }
+                              setPqrsSaving(true);
+                              try {
+                                await businessService.updatePqrsStatus(pqrsSelected.id, {
+                                  status: pqrsStatus,
+                                  agentResponse: pqrsResponse || undefined,
+                                });
+                                setPqrsList((prev) =>
+                                  prev.map((p) => p.id === pqrsSelected.id
+                                    ? { ...p, status: pqrsStatus, agentResponse: pqrsResponse }
+                                    : p
+                                  )
+                                );
+                                setPqrsSelected((prev: any) => ({ ...prev, status: pqrsStatus, agentResponse: pqrsResponse }));
+                              } catch {
+                                alert('Error al actualizar el PQRS');
+                              } finally {
+                                setPqrsSaving(false);
+                              }
+                            }}
+                            disabled={pqrsSaving}
+                            className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+                          >
+                            {pqrsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            {pqrsSaving ? 'Guardando...' : 'Guardar cambios'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
       </main>
+
+      {/* Modal foto PQRS */}
+      {pqrsPhotoModal && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setPqrsPhotoModal(null)}
+        >
+          <img
+            src={pqrsPhotoModal}
+            alt="foto ampliada"
+            className="max-w-full max-h-full rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setPqrsPhotoModal(null)}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
       <footer className="bg-white border-t border-gray-200 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">

@@ -22,6 +22,7 @@ import { CitizenChatPage } from '../pages/CitizenChatPage';
 import { ConductorChatPage } from '../pages/ConductorChatPage';
 import { GroupsPage } from '../pages/GroupsPage';
 import { CancelAppointment } from '../pages/CancelAppointment';
+import { PqrsPublicPage } from '../pages/PqrsPublicPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -170,6 +171,9 @@ export const AppRoutes: React.FC = () => {
 
         {/* Ruta pública para cancelar cita desde el link del correo */}
         <Route path="/cancelar-cita/:id" element={<CancelAppointment />} />
+
+        {/* Ruta pública para consultar PQRS desde el correo */}
+        <Route path="/pqrs/:radicado" element={<PqrsPublicPage />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

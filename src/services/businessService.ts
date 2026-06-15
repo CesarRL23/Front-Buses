@@ -565,4 +565,39 @@ export const businessService = {
     const response = await businessApi.patch(`/weather-alert/${id}`, data);
     return response.data;
   },
+
+  // ── PQRS ─────────────────────────────────────────────────────────────────
+
+  createPqrs: async (data: {
+    type: string;
+    category: string;
+    description: string;
+    email: string;
+    citizenUserId?: string;
+    citizenName?: string;
+    photos?: string[];
+  }) => {
+    const response = await businessApi.post('/pqrs', data);
+    return response.data;
+  },
+
+  getPqrsByRadicado: async (radicado: string) => {
+    const response = await businessApi.get(`/pqrs/radicado/${radicado}`);
+    return response.data;
+  },
+
+  getPqrsByUser: async (citizenUserId: string) => {
+    const response = await businessApi.get(`/pqrs/user/${citizenUserId}`);
+    return response.data;
+  },
+
+  getAllPqrs: async () => {
+    const response = await businessApi.get('/pqrs');
+    return response.data;
+  },
+
+  updatePqrsStatus: async (id: number, data: { status: string; agentResponse?: string }) => {
+    const response = await businessApi.patch(`/pqrs/${id}/status`, data);
+    return response.data;
+  },
 };

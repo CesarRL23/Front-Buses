@@ -23,11 +23,23 @@ export interface MessagePayload {
   messageType?: 'CHAT' | 'ANNOUNCEMENT';
   announcementId?: number;
   isUrgent?: boolean;
+  senderRole?: 'citizen' | 'driver';
+  deletedAt?: string;
 }
 
 export interface ReadReceiptPayload {
   messageId: number;
   fechaLectura: string;
+}
+
+export interface GroupMessageReadPayload {
+  messageId: number;
+  userId: string;
+  readAt: string;
+}
+
+export interface MessageDeletedPayload {
+  messageId: number;
 }
 
 export interface AnnouncementPayload {
@@ -43,14 +55,18 @@ interface SocketContextType {
   incomingMessages: MessagePayload[];
   sentConfirmations: MessagePayload[];
   readReceipts: ReadReceiptPayload[];
+  groupMessageReads: GroupMessageReadPayload[];
+  deletedMessages: MessageDeletedPayload[];
   unreadCount: number;
   lastMessageError: string | null;
   sendMessage: (
     receptor: string,
     contenido: string,
+    senderInterface: 'citizen' | 'driver',
     ubicacion?: { latitud: number; longitud: number },
   ) => void;
   markRead: (messageId: number) => void;
+  markGroupRead: (messageId: number) => void;
   clearUnread: () => void;
   clearMessageError: () => void;
 }
@@ -68,6 +84,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [incomingMessages, setIncomingMessages] = useState<MessagePayload[]>([]);
   const [sentConfirmations, setSentConfirmations] = useState<MessagePayload[]>([]);
   const [readReceipts, setReadReceipts] = useState<ReadReceiptPayload[]>([]);
+  const [groupMessageReads, setGroupMessageReads] = useState<GroupMessageReadPayload[]>([]);
+  const [deletedMessages, setDeletedMessages] = useState<MessageDeletedPayload[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [lastMessageError, setLastMessageError] = useState<string | null>(null);
 
@@ -106,8 +124,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setReadReceipts((prev) => [receipt, ...prev]);
     });
 
-    socket.on('read_receipt', (receipt: ReadReceiptPayload) => {
-      setReadReceipts((prev) => [receipt, ...prev]);
+    socket.on('group_message_read', (payload: GroupMessageReadPayload) => {
+      setGroupMessageReads((prev) => [payload, ...prev]);
+    });
+
+    socket.on('message_deleted', (payload: MessageDeletedPayload) => {
+      setDeletedMessages((prev) => [payload, ...prev]);
     });
 
     socket.on('message_error', (payload: { error: string; detail?: string }) => {
@@ -176,14 +198,23 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [setOnMarkAnnouncementRead]);
 
   const sendMessage = useCallback(
-    (receptor: string, contenido: string, ubicacion?: { latitud: number; longitud: number }) => {
-      socketRef.current?.emit('send_message', { receptor, contenido, ...ubicacion });
+    (
+      receptor: string,
+      contenido: string,
+      senderInterface: 'citizen' | 'driver',
+      ubicacion?: { latitud: number; longitud: number },
+    ) => {
+      socketRef.current?.emit('send_message', { receptor, contenido, senderInterface, ...ubicacion });
     },
     [],
   );
 
   const markRead = useCallback((messageId: number) => {
     socketRef.current?.emit('mark_read', { messageId });
+  }, []);
+
+  const markGroupRead = useCallback((messageId: number) => {
+    socketRef.current?.emit('mark_group_read', { messageId });
   }, []);
 
   const clearUnread = useCallback(() => setUnreadCount(0), []);
@@ -196,10 +227,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         incomingMessages,
         sentConfirmations,
         readReceipts,
+        groupMessageReads,
+        deletedMessages,
         unreadCount,
         lastMessageError,
         sendMessage,
         markRead,
+        markGroupRead,
         clearUnread,
         clearMessageError,
       }}

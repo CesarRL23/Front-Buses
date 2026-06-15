@@ -11,6 +11,7 @@ import {
   Phone,
   Video,
   Users,
+  UserPlus,
   User,
   Check,
   CheckCheck,
@@ -22,6 +23,8 @@ import { Navbar } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { businessService } from '../services/businessService';
 import { useSocket, MessagePayload } from '../context/useSocket';
+import { GroupChatPanel } from '../components/GroupChatPanel';
+import { CreateGroupModal } from '../components/CreateGroupModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,6 +39,8 @@ interface ChatMessage {
   longitud?: number;
   messageType?: 'CHAT' | 'ANNOUNCEMENT';
   isUrgent?: boolean;
+  senderId?: string;
+  senderRole?: 'citizen' | 'driver';
 }
 
 interface Chat {
@@ -111,6 +116,8 @@ function payloadToMsg(msg: MessagePayload, myUserId: string): ChatMessage {
     longitud: msg.longitud,
     messageType: msg.messageType,
     isUrgent: msg.isUrgent,
+    senderId: msg.emisor,
+    senderRole: msg.senderRole,
   };
 }
 
@@ -124,6 +131,7 @@ function buildChats(sent: MessagePayload[], received: MessagePayload[], myUserId
   for (const msg of allMsgs) {
     const otherId = msg.emisor === myUserId ? msg.receptor : msg.emisor;
     if (!otherId) continue;
+    if (otherId.startsWith('group-')) continue; // handled by groupChats separately
 
     if (!map.has(otherId)) {
       map.set(otherId, otherId === SYSTEM_ANNOUNCEMENTS_SENDER_ID
@@ -189,8 +197,13 @@ function buildGroupChat(group: GroupDetails, msgs: MessagePayload[], myUserId: s
 const Avatar: React.FC<{ chat: Chat; size?: 'sm' | 'md' | 'lg' }> = ({ chat, size = 'md' }) => {
   const sizes = { sm: 'w-9 h-9 text-xs', md: 'w-11 h-11 text-sm', lg: 'w-14 h-14 text-base' };
   return (
-    <div className={`${sizes[size]} ${chat.avatarColor} rounded-full flex items-center justify-center font-black text-white flex-shrink-0`}>
+    <div className={`relative ${sizes[size]} ${chat.avatarColor} rounded-full flex items-center justify-center font-black text-white flex-shrink-0`}>
       {chat.avatar}
+      {chat.type === 'group' && (
+        <span className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
+          <Users className="w-3 h-3 text-blue-600" />
+        </span>
+      )}
     </div>
   );
 };
@@ -226,7 +239,7 @@ export const CitizenChatPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, token } = useAuth();
-  const { incomingMessages, sentConfirmations, readReceipts, sendMessage, markRead, clearUnread, connected, lastMessageError, clearMessageError } = useSocket();
+  const { incomingMessages, sentConfirmations, readReceipts, groupMessageReads, deletedMessages, sendMessage, markRead, markGroupRead, clearUnread, connected, lastMessageError, clearMessageError } = useSocket();
 
   const myUserId = user?.id ?? '';
 
@@ -248,11 +261,16 @@ export const CitizenChatPage: React.FC = () => {
 
   // New chat modal state
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [personSearch, setPersonSearch] = useState('');
   const [personResults, setPersonResults] = useState<PersonResult[]>([]);
   const [searchingPersons, setSearchingPersons] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const groupChatRef = useRef<GroupDetails | null>(null);
+  useEffect(() => {
+    groupChatRef.current = groupChat;
+  }, [groupChat]);
 
   // ── Load message history on mount ──
   useEffect(() => {
@@ -325,9 +343,13 @@ export const CitizenChatPage: React.FC = () => {
 
     // Group messages are sent to a receptor like 'group-123'
     if (msg.receptor?.startsWith('group-')) {
+      // Skip if I'm the sender — handled via sentConfirmations (replaces optimistic pending)
+      if (msg.emisor === myUserId) return;
       const groupId = Number(msg.receptor.replace('group-', ''));
-      if (groupChat?.id === groupId) {
-        setGroupMessages((prev) => [...prev, payloadToMsg(msg, myUserId)]);
+      if (groupChatRef.current?.id === groupId) {
+        setGroupMessages((prev) =>
+          prev.some((m) => m.id === String(msg.id)) ? prev : [...prev, payloadToMsg(msg, myUserId)],
+        );
       }
       return;
     }
@@ -388,7 +410,7 @@ export const CitizenChatPage: React.FC = () => {
     if (selectedChatId === otherId) {
       markRead(msg.id);
     }
-  }, [incomingMessages, groupChat]);
+  }, [incomingMessages, myUserId]);
 
   // ── Handle sent confirmations ──
   useEffect(() => {
@@ -397,7 +419,7 @@ export const CitizenChatPage: React.FC = () => {
     const otherId = msg.receptor;
     if (!otherId) return;
 
-    if (groupChat && otherId === `group-${groupChat.id}`) {
+    if (groupChatRef.current && otherId === `group-${groupChatRef.current.id}`) {
       setGroupMessages((prev) =>
         prev.map((m) => (m.id === 'pending' ? payloadToMsg(msg, myUserId) : m)),
       );
@@ -418,7 +440,7 @@ export const CitizenChatPage: React.FC = () => {
           : c,
       ),
     );
-  }, [sentConfirmations, groupChat, myUserId]);
+  }, [sentConfirmations, myUserId]);
 
   // ── Handle read receipts ──
   useEffect(() => {
@@ -436,6 +458,13 @@ export const CitizenChatPage: React.FC = () => {
       })),
     );
   }, [readReceipts]);
+
+  // ── Remove messages deleted by group admins ──
+  useEffect(() => {
+    if (!deletedMessages.length) return;
+    const { messageId } = deletedMessages[0];
+    setGroupMessages((prev) => prev.filter((m) => m.id !== String(messageId)));
+  }, [deletedMessages]);
 
   // ── Scroll to bottom on new messages ──
   useEffect(() => {
@@ -495,11 +524,59 @@ export const CitizenChatPage: React.FC = () => {
     loadGroup();
   }, [searchParams, myUserId]);
 
-  const filteredChats = chats.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const allChats = [...chats, ...groupChats]
+    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
 
   const selectedChat = chats.find((c) => c.id === selectedChatId) ?? null;
+
+  const handleSelectChatItem = (chat: Chat) => {
+    if (chat.type === 'group' && chat.groupId) {
+      navigate(`/mensajes?groupId=${chat.groupId}`);
+      setSidebarOpen(false);
+      return;
+    }
+    handleSelectChat(chat.id);
+  };
+
+  const reloadGroupChats = async () => {
+    if (!myUserId || !token) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const groupsRes = await axios.get<GroupDetails[]>(`${NEST_URL}/group/user/${myUserId}`, { headers });
+      const groupChatsBuilt = await Promise.all(
+        groupsRes.data.map(async (group) => {
+          try {
+            const groupMessagesRes = await axios.get<MessagePayload[]>(`${NEST_URL}/message/group/${group.id}`, { headers });
+            return buildGroupChat(group, groupMessagesRes.data, myUserId);
+          } catch {
+            return {
+              id: `group-${group.id}`,
+              groupId: group.id,
+              type: 'group' as const,
+              name: group.name,
+              avatar: group.imageUrl?.length === 1 || group.imageUrl?.length === 2 ? group.imageUrl : initials(group.name),
+              avatarColor: colorFor(String(group.id)),
+              lastMessage: 'Sin mensajes todavía',
+              lastMessageAt: '',
+              time: '',
+              unread: 0,
+              messages: [],
+            };
+          }
+        }),
+      );
+      setGroupChats(groupChatsBuilt);
+    } catch {
+      // silencioso
+    }
+  };
+
+  const handleGroupCreated = (group: GroupDetails) => {
+    setShowCreateGroup(false);
+    reloadGroupChats();
+    navigate(`/mensajes?groupId=${group.id}`);
+  };
 
   const handleSelectChat = (id: string) => {
     setSelectedChatId(id);
@@ -578,7 +655,7 @@ export const CitizenChatPage: React.FC = () => {
       );
     }
 
-    sendMessage(messageTarget, newMessage.trim(), pendingLocation ?? undefined);
+    sendMessage(messageTarget, newMessage.trim(), 'citizen', pendingLocation ?? undefined);
     setNewMessage('');
     setPendingLocation(null);
   };
@@ -624,14 +701,24 @@ export const CitizenChatPage: React.FC = () => {
                     <span className="text-[10px] text-red-500 font-semibold">sin conexión</span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowNewChat(true)}
-                  title="Nuevo mensaje"
-                  className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateGroup(true)}
+                    title="Crear grupo"
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewChat(true)}
+                    title="Nuevo mensaje"
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="relative">
@@ -644,24 +731,11 @@ export const CitizenChatPage: React.FC = () => {
                   className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition"
                 />
               </div>
-
-              {/* Navigation Tabs */}
-              <div className="flex gap-2 mt-4">
-                <button className="flex-1 bg-blue-50 text-blue-700 font-bold py-2 rounded-xl text-xs border border-blue-100 transition shadow-sm">
-                  Chats Personales
-                </button>
-                <button
-                  onClick={() => navigate('/grupos')}
-                  className="flex-1 bg-white text-gray-600 hover:text-blue-600 hover:bg-gray-50 font-bold py-2 rounded-xl text-xs border border-gray-200 transition"
-                >
-                  Grupos de Usuarios
-                </button>
-              </div>
             </div>
 
             {/* Chat list */}
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {filteredChats.length === 0 ? (
+              {allChats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="bg-gray-100 rounded-full p-4 mb-3">
                     <User className="w-6 h-6 text-gray-400" />
@@ -670,12 +744,12 @@ export const CitizenChatPage: React.FC = () => {
                   <p className="text-xs text-gray-400 mt-1">Toca + para iniciar una</p>
                 </div>
               ) : (
-                filteredChats.map((chat) => (
+                allChats.map((chat) => (
                   <ChatListItem
                     key={chat.id}
                     chat={chat}
-                    active={selectedChatId === chat.id}
-                    onClick={() => handleSelectChat(chat.id)}
+                    active={chat.type === 'group' ? groupChat?.id === chat.groupId : selectedChatId === chat.id}
+                    onClick={() => handleSelectChatItem(chat)}
                   />
                 ))
               )}
@@ -684,141 +758,23 @@ export const CitizenChatPage: React.FC = () => {
 
           {/* ── Chat area ────────────────────────────────────────────── */}
           {groupChat ? (
-            <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
-
-              {/* Group chat header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    className="md:hidden p-1.5 rounded-xl hover:bg-gray-100 transition"
-                    onClick={() => setSidebarOpen(true)}
-                  >
-                    <ArrowLeft className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white ${groupChat.imageUrl?.length === 1 || groupChat.imageUrl?.length === 2 ? 'bg-gray-400' : colorFor(String(groupChat.id))}`}>
-                    {groupChat.imageUrl?.length === 1 || groupChat.imageUrl?.length === 2 ? groupChat.imageUrl : initials(groupChat.name)}
-                  </div>
-                  <div>
-                    <p className="font-black text-gray-900">{groupChat.name}</p>
-                    <p className="text-xs text-gray-500">Chat del grupo</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button type="button" title="Ver información del grupo" className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500 hover:text-blue-600">
-                    <Users className="w-5 h-5" />
-                  </button>
-                  <button type="button" title="Más opciones" className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-gray-50/40">
-                {groupLoading ? (
-                  <div className="flex h-full items-center justify-center py-20 text-gray-500">
-                    Cargando conversación del grupo…
-                  </div>
-                ) : groupMessages.length > 0 ? (
-                  groupMessages.map((msg, idx) => (
-                    <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
-                            ? 'bg-blue-600 text-white rounded-br-sm'
-                            : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
-                          }`}
-                      >
-                        <p className="text-sm leading-relaxed">{msg.text}</p>
-                        {(msg.latitud != null && msg.longitud != null) && (
-                          <a
-                            href={`https://maps.google.com/?q=${msg.latitud},${msg.longitud}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`flex items-center gap-1 text-[10px] mt-1 underline ${msg.mine ? 'text-blue-200' : 'text-blue-500'}`}
-                          >
-                            <MapPin className="w-3 h-3" /> Ver ubicación
-                          </a>
-                        )}
-                        <div className={`flex items-center justify-end gap-1 mt-1 ${msg.mine ? 'text-blue-200' : 'text-gray-400'}`}>
-                          <span className="text-[10px]">{msg.time}</span>
-                          {msg.mine && (
-                            msg.read
-                              ? <CheckCheck className="w-3 h-3 text-blue-200" aria-label={msg.readAt ? `Leído: ${new Date(msg.readAt).toLocaleString('es-CO')}` : 'Leído'} />
-                              : <Check className="w-3 h-3" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 py-16">
-                    <Users className="w-10 h-10 mb-4" />
-                    <p className="font-semibold">Bienvenido al chat de grupo</p>
-                    <p className="text-sm mt-2">Aquí puedes hablar con los integrantes de <strong>{groupChat.name}</strong>.</p>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <form
-                onSubmit={handleSendMessage}
-                className="px-6 py-4 border-t border-gray-100 bg-white flex items-end gap-3"
-              >
-                <button
-                  type="button"
-                  title={pendingLocation ? 'Ubicación adjunta — clic para quitar' : 'Adjuntar ubicación actual'}
-                  onClick={pendingLocation ? () => setPendingLocation(null) : handleRequestLocation}
-                  className={`p-2.5 rounded-xl transition flex-shrink-0 ${pendingLocation
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
-                    }`}
-                >
-                  {loadingLocation ? (
-                    <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <MapPin className="w-5 h-5" />
-                  )}
-                </button>
-
-                <div className="flex-1 relative">
-                  <textarea
-                    rows={1}
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e as unknown as React.FormEvent);
-                      }
-                    }}
-                    placeholder="Escribe un mensaje... (máx. 500 caracteres)"
-                    maxLength={500}
-                    className="w-full resize-none bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition pr-10 max-h-32"
-                  />
-                  <button type="button" title="Emoji" className="absolute right-3 bottom-3 text-gray-400 hover:text-blue-500 transition">
-                    <Smile className="w-4 h-4" />
-                  </button>
-                </div>
-                <button
-                  type="submit"
-                  title="Enviar mensaje"
-                  disabled={!newMessage.trim()}
-                  className="p-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl shadow-sm transition-all active:scale-95 flex-shrink-0"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </form>
-
-              {pendingLocation && (
-                <div className="px-6 pb-2 bg-white flex items-center gap-2 text-xs text-blue-600">
-                  <MapPin className="w-3 h-3" />
-                  Ubicación adjunta ({pendingLocation.latitud.toFixed(4)}, {pendingLocation.longitud.toFixed(4)})
-                </div>
-              )}
-            </div>
+            <GroupChatPanel
+              groupChat={groupChat}
+              groupMessages={groupMessages}
+              groupLoading={groupLoading}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              newMessage={newMessage}
+              setNewMessage={setNewMessage}
+              onSendMessage={handleSendMessage}
+              pendingLocation={pendingLocation}
+              setPendingLocation={setPendingLocation}
+              loadingLocation={loadingLocation}
+              onRequestLocation={handleRequestLocation}
+              onMarkRead={markGroupRead}
+              groupMessageReads={groupMessageReads}
+              messagesEndRef={messagesEndRef}
+            />
           ) : selectedChat ? (
             <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
 
@@ -1027,6 +983,12 @@ export const CitizenChatPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <CreateGroupModal
+        open={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onCreated={handleGroupCreated}
+      />
 
       {lastMessageError && (
         <div

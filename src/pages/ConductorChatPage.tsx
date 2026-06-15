@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   ArrowLeft,
@@ -10,6 +10,9 @@ import {
   MoreVertical,
   Phone,
   Video,
+  Users,
+  UserPlus,
+  Megaphone,
   User,
   Check,
   CheckCheck,
@@ -20,6 +23,9 @@ import {
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket, MessagePayload } from '../context/useSocket';
+import { businessService } from '../services/businessService';
+import { GroupChatPanel } from '../components/GroupChatPanel';
+import { CreateGroupModal } from '../components/CreateGroupModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,15 +38,30 @@ interface ChatMessage {
   readAt?: string;
   latitud?: number;
   longitud?: number;
+  messageType?: 'CHAT' | 'ANNOUNCEMENT';
+  isUrgent?: boolean;
+  senderId?: string;
+  senderRole?: 'citizen' | 'driver';
+}
+
+interface GroupDetails {
+  id: number;
+  name: string;
+  description?: string | null;
+  isPublic: boolean;
+  imageUrl?: string | null;
+  personGroups?: Array<{ person: { id: number; nombre: string; userId: string }; role?: string }>;
 }
 
 interface Chat {
   id: string;
-  type: 'individual';
+  type: 'individual' | 'group';
+  groupId?: number;
   name: string;
   avatar: string;
   avatarColor: string;
   lastMessage: string;
+  lastMessageAt: string;
   time: string;
   unread: number;
   messages: ChatMessage[];
@@ -53,6 +74,7 @@ interface PersonResult {
 }
 
 const NEST_URL = 'http://localhost:3000';
+const SYSTEM_ANNOUNCEMENTS_SENDER_ID = 'SYSTEM_ANNOUNCEMENTS';
 const AVATAR_COLORS = [
   'bg-indigo-500', 'bg-pink-500', 'bg-emerald-500',
   'bg-amber-500', 'bg-violet-500', 'bg-blue-500', 'bg-rose-500',
@@ -88,6 +110,10 @@ function payloadToMsg(msg: MessagePayload, myUserId: string): ChatMessage {
     readAt: msg.fechaLectura,
     latitud: msg.latitud,
     longitud: msg.longitud,
+    messageType: msg.messageType,
+    isUrgent: msg.isUrgent,
+    senderId: msg.emisor,
+    senderRole: msg.senderRole,
   };
 }
 
@@ -101,24 +127,40 @@ function buildChats(sent: MessagePayload[], received: MessagePayload[], myUserId
   for (const msg of allMsgs) {
     const otherId = msg.emisor === myUserId ? msg.receptor : msg.emisor;
     if (!otherId) continue;
+    if (otherId.startsWith('group-')) continue; // handled by groupChats separately
 
     if (!map.has(otherId)) {
-      map.set(otherId, {
-        id: otherId,
-        type: 'individual',
-        name: otherId.slice(-6),
-        avatar: '?',
-        avatarColor: colorFor(otherId),
-        lastMessage: '',
-        time: '',
-        unread: 0,
-        messages: [],
-      });
+      map.set(otherId, otherId === SYSTEM_ANNOUNCEMENTS_SENDER_ID
+        ? {
+          id: otherId,
+          type: 'individual',
+          name: 'Avisos del Sistema',
+          avatar: '📢',
+          avatarColor: 'bg-red-500',
+          lastMessage: '',
+          lastMessageAt: '',
+          time: '',
+          unread: 0,
+          messages: [],
+        }
+        : {
+          id: otherId,
+          type: 'individual',
+          name: otherId.slice(-6),
+          avatar: '?',
+          avatarColor: colorFor(otherId),
+          lastMessage: '',
+          lastMessageAt: '',
+          time: '',
+          unread: 0,
+          messages: [],
+        });
     }
 
     const chat = map.get(otherId)!;
     chat.messages.push(payloadToMsg(msg, myUserId));
     chat.lastMessage = msg.contenido;
+    chat.lastMessageAt = msg.fechaDeEnvio;
     chat.time = fmtTime(msg.fechaDeEnvio);
     if (msg.emisor !== myUserId && !msg.leido) chat.unread++;
   }
@@ -126,13 +168,38 @@ function buildChats(sent: MessagePayload[], received: MessagePayload[], myUserId
   return Array.from(map.values());
 }
 
+function buildGroupChat(group: GroupDetails, msgs: MessagePayload[], myUserId: string): Chat {
+  const sorted = msgs
+    .slice()
+    .sort((a, b) => new Date(b.fechaDeEnvio).getTime() - new Date(a.fechaDeEnvio).getTime());
+  const last = sorted[0];
+  return {
+    id: `group-${group.id}`,
+    groupId: group.id,
+    type: 'group',
+    name: group.name,
+    avatar: group.imageUrl?.length === 1 || group.imageUrl?.length === 2 ? group.imageUrl : initials(group.name),
+    avatarColor: colorFor(String(group.id)),
+    lastMessage: last?.contenido || 'Sin mensajes todavía',
+    lastMessageAt: last?.fechaDeEnvio || '',
+    time: last ? fmtTime(last.fechaDeEnvio) : '',
+    unread: sorted.filter((msg) => msg.emisor !== myUserId && !msg.leido).length,
+    messages: sorted.map((msg) => payloadToMsg(msg, myUserId)),
+  };
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const Avatar: React.FC<{ chat: Chat; size?: 'sm' | 'md' | 'lg' }> = ({ chat, size = 'md' }) => {
   const sizes = { sm: 'w-9 h-9 text-xs', md: 'w-11 h-11 text-sm', lg: 'w-14 h-14 text-base' };
   return (
-    <div className={`${sizes[size]} ${chat.avatarColor} rounded-full flex items-center justify-center font-black text-white flex-shrink-0`}>
+    <div className={`relative ${sizes[size]} ${chat.avatarColor} rounded-full flex items-center justify-center font-black text-white flex-shrink-0`}>
       {chat.avatar}
+      {chat.type === 'group' && (
+        <span className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
+          <Users className="w-3 h-3 text-blue-600" />
+        </span>
+      )}
     </div>
   );
 };
@@ -166,13 +233,18 @@ const ChatListItem: React.FC<{ chat: Chat; active: boolean; onClick: () => void 
 
 export const ConductorChatPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, token } = useAuth();
-  const { incomingMessages, sentConfirmations, readReceipts, sendMessage, markRead, clearUnread, connected, lastMessageError, clearMessageError } = useSocket();
+  const { incomingMessages, sentConfirmations, readReceipts, groupMessageReads, deletedMessages, sendMessage, markRead, markGroupRead, clearUnread, connected, lastMessageError, clearMessageError } = useSocket();
 
   const myUserId = user?.id ?? '';
 
   const [chats, setChats] = useState<Chat[]>([]);
+  const [groupChats, setGroupChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [groupChat, setGroupChat] = useState<GroupDetails | null>(null);
+  const [groupMessages, setGroupMessages] = useState<ChatMessage[]>([]);
+  const [groupLoading, setGroupLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -180,11 +252,16 @@ export const ConductorChatPage: React.FC = () => {
   const [loadingLocation, setLoadingLocation] = useState(false);
 
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [personSearch, setPersonSearch] = useState('');
   const [personResults, setPersonResults] = useState<PersonResult[]>([]);
   const [searchingPersons, setSearchingPersons] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const groupChatRef = useRef<GroupDetails | null>(null);
+  useEffect(() => {
+    groupChatRef.current = groupChat;
+  }, [groupChat]);
 
   // ── Load message history on mount ──
   useEffect(() => {
@@ -193,15 +270,16 @@ export const ConductorChatPage: React.FC = () => {
     const load = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [sentRes, receivedRes] = await Promise.all([
+        const [sentRes, receivedRes, groupsRes] = await Promise.all([
           axios.get<MessagePayload[]>(`${NEST_URL}/message/sent`, { headers }),
           axios.get<MessagePayload[]>(`${NEST_URL}/message/received`, { headers }),
+          axios.get<GroupDetails[]>(`${NEST_URL}/group/user/${myUserId}`, { headers }),
         ]);
         const built = buildChats(sentRes.data, receivedRes.data, myUserId);
-        setChats(built);
 
         const resolved = await Promise.all(
           built.map(async (chat) => {
+            if (chat.id === SYSTEM_ANNOUNCEMENTS_SENDER_ID) return chat;
             try {
               const { data } = await axios.get<{ nombre: string }>(
                 `${NEST_URL}/person/by-user-id/${chat.id}`,
@@ -214,7 +292,32 @@ export const ConductorChatPage: React.FC = () => {
             return chat;
           }),
         );
+
+        const groupChatsBuilt = await Promise.all(
+          groupsRes.data.map(async (group) => {
+            try {
+              const groupMessagesRes = await axios.get<MessagePayload[]>(`${NEST_URL}/message/group/${group.id}`, { headers });
+              return buildGroupChat(group, groupMessagesRes.data, myUserId);
+            } catch {
+              return {
+                id: `group-${group.id}`,
+                groupId: group.id,
+                type: 'group' as const,
+                name: group.name,
+                avatar: group.imageUrl?.length === 1 || group.imageUrl?.length === 2 ? group.imageUrl : initials(group.name),
+                avatarColor: colorFor(String(group.id)),
+                lastMessage: 'Sin mensajes todavía',
+                lastMessageAt: '',
+                time: '',
+                unread: 0,
+                messages: [],
+              };
+            }
+          }),
+        );
+
         setChats(resolved);
+        setGroupChats(groupChatsBuilt);
       } catch {
         // silencioso — el usuario simplemente verá la lista vacía
       }
@@ -228,6 +331,20 @@ export const ConductorChatPage: React.FC = () => {
   useEffect(() => {
     if (!incomingMessages.length || !myUserId) return;
     const msg = incomingMessages[0];
+
+    // Group messages are sent to a receptor like 'group-123'
+    if (msg.receptor?.startsWith('group-')) {
+      // Skip if I'm the sender — handled via sentConfirmations (replaces optimistic pending)
+      if (msg.emisor === myUserId) return;
+      const groupId = Number(msg.receptor.replace('group-', ''));
+      if (groupChatRef.current?.id === groupId) {
+        setGroupMessages((prev) =>
+          prev.some((m) => m.id === String(msg.id)) ? prev : [...prev, payloadToMsg(msg, myUserId)],
+        );
+      }
+      return;
+    }
+
     const otherId = msg.emisor === myUserId ? msg.receptor : msg.emisor;
     if (!otherId) return;
 
@@ -250,17 +367,31 @@ export const ConductorChatPage: React.FC = () => {
       }
 
       return [
-        {
-          id: otherId,
-          type: 'individual',
-          name: otherId.slice(-6),
-          avatar: '?',
-          avatarColor: colorFor(otherId),
-          lastMessage: msg.contenido,
-          time: fmtTime(msg.fechaDeEnvio),
-          unread: selectedChatId === otherId ? 0 : 1,
-          messages: [newMsg],
-        },
+        otherId === SYSTEM_ANNOUNCEMENTS_SENDER_ID
+          ? {
+            id: otherId,
+            type: 'individual' as const,
+            name: 'Avisos del Sistema',
+            avatar: '📢',
+            avatarColor: 'bg-red-500',
+            lastMessage: msg.contenido,
+            lastMessageAt: msg.fechaDeEnvio,
+            time: fmtTime(msg.fechaDeEnvio),
+            unread: selectedChatId === otherId ? 0 : 1,
+            messages: [newMsg],
+          }
+          : {
+            id: otherId,
+            type: 'individual' as const,
+            name: otherId.slice(-6),
+            avatar: '?',
+            avatarColor: colorFor(otherId),
+            lastMessage: msg.contenido,
+            lastMessageAt: msg.fechaDeEnvio,
+            time: fmtTime(msg.fechaDeEnvio),
+            unread: selectedChatId === otherId ? 0 : 1,
+            messages: [newMsg],
+          },
         ...prev,
       ];
     });
@@ -268,7 +399,7 @@ export const ConductorChatPage: React.FC = () => {
     if (selectedChatId === otherId) {
       markRead(msg.id);
     }
-  }, [incomingMessages]);
+  }, [incomingMessages, myUserId]);
 
   // ── Handle sent confirmations ──
   useEffect(() => {
@@ -276,6 +407,13 @@ export const ConductorChatPage: React.FC = () => {
     const msg = sentConfirmations[0];
     const otherId = msg.receptor;
     if (!otherId) return;
+
+    if (groupChatRef.current && otherId === `group-${groupChatRef.current.id}`) {
+      setGroupMessages((prev) =>
+        prev.map((m) => (m.id === 'pending' ? payloadToMsg(msg, myUserId) : m)),
+      );
+      return;
+    }
 
     setChats((prev) =>
       prev.map((c) =>
@@ -291,7 +429,43 @@ export const ConductorChatPage: React.FC = () => {
           : c,
       ),
     );
-  }, [sentConfirmations]);
+  }, [sentConfirmations, myUserId]);
+
+  // ── Remove messages deleted by group admins ──
+  useEffect(() => {
+    if (!deletedMessages.length) return;
+    const { messageId } = deletedMessages[0];
+    setGroupMessages((prev) => prev.filter((m) => m.id !== String(messageId)));
+  }, [deletedMessages]);
+
+  // ── Load group from ?groupId= query param ──
+  useEffect(() => {
+    const groupId = searchParams.get('groupId');
+    if (!groupId) {
+      setGroupChat(null);
+      setGroupMessages([]);
+      return;
+    }
+
+    const loadGroup = async () => {
+      setGroupLoading(true);
+      try {
+        const data = await businessService.getGroupById(Number(groupId));
+        setGroupChat(data);
+        setSelectedChatId(null);
+
+        const messages = await businessService.getGroupMessages(Number(groupId));
+        setGroupMessages(messages.map((msg: MessagePayload) => payloadToMsg(msg, myUserId)));
+      } catch {
+        setGroupChat(null);
+        setGroupMessages([]);
+      } finally {
+        setGroupLoading(false);
+      }
+    };
+
+    loadGroup();
+  }, [searchParams, myUserId]);
 
   // ── Handle read receipts ──
   useEffect(() => {
@@ -340,11 +514,59 @@ export const ConductorChatPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [personSearch]);
 
-  const filteredChats = chats.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const allChats = [...chats, ...groupChats]
+    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
 
   const selectedChat = chats.find((c) => c.id === selectedChatId) ?? null;
+
+  const handleSelectChatItem = (chat: Chat) => {
+    if (chat.type === 'group' && chat.groupId) {
+      navigate(`/conductor/mensajes?groupId=${chat.groupId}`);
+      setSidebarOpen(false);
+      return;
+    }
+    handleSelectChat(chat.id);
+  };
+
+  const reloadGroupChats = async () => {
+    if (!myUserId || !token) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const groupsRes = await axios.get<GroupDetails[]>(`${NEST_URL}/group/user/${myUserId}`, { headers });
+      const groupChatsBuilt = await Promise.all(
+        groupsRes.data.map(async (group) => {
+          try {
+            const groupMessagesRes = await axios.get<MessagePayload[]>(`${NEST_URL}/message/group/${group.id}`, { headers });
+            return buildGroupChat(group, groupMessagesRes.data, myUserId);
+          } catch {
+            return {
+              id: `group-${group.id}`,
+              groupId: group.id,
+              type: 'group' as const,
+              name: group.name,
+              avatar: group.imageUrl?.length === 1 || group.imageUrl?.length === 2 ? group.imageUrl : initials(group.name),
+              avatarColor: colorFor(String(group.id)),
+              lastMessage: 'Sin mensajes todavía',
+              lastMessageAt: '',
+              time: '',
+              unread: 0,
+              messages: [],
+            };
+          }
+        }),
+      );
+      setGroupChats(groupChatsBuilt);
+    } catch {
+      // silencioso
+    }
+  };
+
+  const handleGroupCreated = (group: GroupDetails) => {
+    setShowCreateGroup(false);
+    reloadGroupChats();
+    navigate(`/conductor/mensajes?groupId=${group.id}`);
+  };
 
   const handleSelectChat = (id: string) => {
     setSelectedChatId(id);
@@ -379,6 +601,7 @@ export const ConductorChatPage: React.FC = () => {
       avatar: initials(person.nombre),
       avatarColor: colorFor(person.userId),
       lastMessage: '',
+      lastMessageAt: '',
       time: '',
       unread: 0,
       messages: [],
@@ -389,7 +612,9 @@ export const ConductorChatPage: React.FC = () => {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedChatId) return;
+    if (!newMessage.trim() || (!selectedChatId && !groupChat)) return;
+
+    const messageTarget = groupChat ? `group-${groupChat.id}` : selectedChatId!;
 
     const optimistic: ChatMessage = {
       id: 'pending',
@@ -401,20 +626,24 @@ export const ConductorChatPage: React.FC = () => {
       longitud: pendingLocation?.longitud,
     };
 
-    setChats((prev) =>
-      prev.map((c) =>
-        c.id === selectedChatId
-          ? {
-            ...c,
-            messages: [...c.messages, optimistic],
-            lastMessage: newMessage.trim(),
-            time: optimistic.time,
-          }
-          : c,
-      ),
-    );
+    if (groupChat) {
+      setGroupMessages((prev) => [...prev, optimistic]);
+    } else {
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === selectedChatId
+            ? {
+              ...c,
+              messages: [...c.messages, optimistic],
+              lastMessage: newMessage.trim(),
+              time: optimistic.time,
+            }
+            : c,
+        ),
+      );
+    }
 
-    sendMessage(selectedChatId, newMessage.trim(), pendingLocation ?? undefined);
+    sendMessage(messageTarget, newMessage.trim(), 'driver', pendingLocation ?? undefined);
     setNewMessage('');
     setPendingLocation(null);
   };
@@ -459,14 +688,32 @@ export const ConductorChatPage: React.FC = () => {
                     <span className="text-[10px] text-red-500 font-semibold">sin conexión</span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowNewChat(true)}
-                  title="Nuevo mensaje"
-                  className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/conductor/grupos')}
+                    title="Difusión a grupos"
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                  >
+                    <Megaphone className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateGroup(true)}
+                    title="Crear grupo"
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewChat(true)}
+                    title="Nuevo mensaje"
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="relative">
@@ -482,7 +729,7 @@ export const ConductorChatPage: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {filteredChats.length === 0 ? (
+              {allChats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="bg-gray-100 rounded-full p-4 mb-3">
                     <User className="w-6 h-6 text-gray-400" />
@@ -491,12 +738,12 @@ export const ConductorChatPage: React.FC = () => {
                   <p className="text-xs text-gray-400 mt-1">Toca + para iniciar una</p>
                 </div>
               ) : (
-                filteredChats.map((chat) => (
+                allChats.map((chat) => (
                   <ChatListItem
                     key={chat.id}
                     chat={chat}
-                    active={selectedChatId === chat.id}
-                    onClick={() => handleSelectChat(chat.id)}
+                    active={chat.type === 'group' ? groupChat?.id === chat.groupId : selectedChatId === chat.id}
+                    onClick={() => handleSelectChatItem(chat)}
                   />
                 ))
               )}
@@ -504,7 +751,25 @@ export const ConductorChatPage: React.FC = () => {
           </aside>
 
           {/* ── Chat area ────────────────────────────────────────────── */}
-          {selectedChat ? (
+          {groupChat ? (
+            <GroupChatPanel
+              groupChat={groupChat}
+              groupMessages={groupMessages}
+              groupLoading={groupLoading}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              newMessage={newMessage}
+              setNewMessage={setNewMessage}
+              onSendMessage={handleSendMessage}
+              pendingLocation={pendingLocation}
+              setPendingLocation={setPendingLocation}
+              loadingLocation={loadingLocation}
+              onRequestLocation={handleRequestLocation}
+              onMarkRead={markGroupRead}
+              groupMessageReads={groupMessageReads}
+              messagesEndRef={messagesEndRef}
+            />
+          ) : selectedChat ? (
             <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
 
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
@@ -538,13 +803,22 @@ export const ConductorChatPage: React.FC = () => {
 
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-gray-50/40">
                 {selectedChat.messages.map((msg, idx) => (
-                  <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.messageType === 'ANNOUNCEMENT' ? 'justify-center' : msg.mine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
-                          ? 'bg-blue-600 text-white rounded-br-sm'
-                          : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
+                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.messageType === 'ANNOUNCEMENT'
+                          ? msg.isUrgent
+                            ? 'bg-red-50 text-red-900 border border-red-200'
+                            : 'bg-amber-50 text-amber-900 border border-amber-200'
+                          : msg.mine
+                            ? 'bg-blue-600 text-white rounded-br-sm'
+                            : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
                         }`}
                     >
+                      {msg.messageType === 'ANNOUNCEMENT' && msg.isUrgent && (
+                        <span className="inline-block mb-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                          Urgente
+                        </span>
+                      )}
                       <p className="text-sm leading-relaxed">{msg.text}</p>
                       {(msg.latitud != null && msg.longitud != null) && (
                         <a
@@ -570,6 +844,11 @@ export const ConductorChatPage: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
+              {selectedChat.id === SYSTEM_ANNOUNCEMENTS_SENDER_ID ? (
+                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 text-center text-sm text-gray-500">
+                  Canal de solo lectura — no se puede responder
+                </div>
+              ) : (
               <form
                 onSubmit={handleSendMessage}
                 className="px-6 py-4 border-t border-gray-100 bg-white flex items-end gap-3"
@@ -618,8 +897,9 @@ export const ConductorChatPage: React.FC = () => {
                   <Send className="w-5 h-5" />
                 </button>
               </form>
+              )}
 
-              {pendingLocation && (
+              {pendingLocation && selectedChat.id !== SYSTEM_ANNOUNCEMENTS_SENDER_ID && (
                 <div className="px-6 pb-2 bg-white flex items-center gap-2 text-xs text-blue-600">
                   <MapPin className="w-3 h-3" />
                   Ubicación adjunta ({pendingLocation.latitud.toFixed(4)}, {pendingLocation.longitud.toFixed(4)})
@@ -694,6 +974,12 @@ export const ConductorChatPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <CreateGroupModal
+        open={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onCreated={handleGroupCreated}
+      />
 
       {lastMessageError && (
         <div

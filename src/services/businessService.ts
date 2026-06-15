@@ -494,6 +494,16 @@ export const businessService = {
     return response.data;
   },
 
+  getGroupMessageReads: async (groupId: number, messageId: number) => {
+    const response = await businessApi.get(`/message/group/${groupId}/${messageId}/reads`);
+    return response.data;
+  },
+
+  deleteGroupMessage: async (messageId: number) => {
+    const response = await businessApi.delete(`/message/group/${messageId}`);
+    return response.data;
+  },
+
   createGroup: async (data: any) => {
     const response = await businessApi.post('/group', data);
     return response.data;

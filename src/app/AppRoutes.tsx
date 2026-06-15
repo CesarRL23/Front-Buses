@@ -20,7 +20,7 @@ import { FinancialAdministratorDashboard } from '../pages/FinancialAdministrator
 import { OperationsManagerDashboard } from '../pages/OperationsManagerDashboard';
 import { CitizenChatPage } from '../pages/CitizenChatPage';
 import { ConductorChatPage } from '../pages/ConductorChatPage';
-import { GroupsPage } from '../pages/GroupsPage';
+import { ConductorGroupsPage } from '../pages/ConductorGroupsPage';
 import { CancelAppointment } from '../pages/CancelAppointment';
 import { PqrsPublicPage } from '../pages/PqrsPublicPage';
 
@@ -98,6 +98,15 @@ export const AppRoutes: React.FC = () => {
         />
 
         <Route
+          path="/conductor/grupos"
+          element={
+            <PrivateRoute>
+              <ConductorGroupsPage />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
           path="/ciudadano"
           element={
             <PrivateRoute>
@@ -156,15 +165,6 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <CitizenChatPage />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/grupos"
-          element={
-            <PrivateRoute>
-              <GroupsPage />
             </PrivateRoute>
           }
         />

@@ -18,6 +18,7 @@ import {
   Circle,
   Plus,
   X,
+  Globe,
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
@@ -25,6 +26,7 @@ import { businessService } from '../services/businessService';
 import { useSocket, MessagePayload } from '../context/useSocket';
 import { GroupChatPanel } from '../components/GroupChatPanel';
 import { CreateGroupModal } from '../components/CreateGroupModal';
+import { PublicGroupsPanel } from '../components/PublicGroupsPanel';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -237,9 +239,9 @@ const ChatListItem: React.FC<{ chat: Chat; active: boolean; onClick: () => void 
 
 export const CitizenChatPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, token } = useAuth();
-  const { incomingMessages, sentConfirmations, readReceipts, groupMessageReads, deletedMessages, sendMessage, markRead, markGroupRead, clearUnread, connected, lastMessageError, clearMessageError } = useSocket();
+  const { incomingMessages, sentConfirmations, readReceipts, groupMessageReads, deletedMessages, memberRemovedEvents, groupNameChangedEvents, groupAddedEvents, sendMessage, markRead, markGroupRead, clearUnread, connected, lastMessageError, clearMessageError } = useSocket();
 
   const myUserId = user?.id ?? '';
 
@@ -262,6 +264,7 @@ export const CitizenChatPage: React.FC = () => {
   // New chat modal state
   const [showNewChat, setShowNewChat] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showPublicGroups, setShowPublicGroups] = useState(false);
   const [personSearch, setPersonSearch] = useState('');
   const [personResults, setPersonResults] = useState<PersonResult[]>([]);
   const [searchingPersons, setSearchingPersons] = useState(false);
@@ -466,6 +469,33 @@ export const CitizenChatPage: React.FC = () => {
     setGroupMessages((prev) => prev.filter((m) => m.id !== String(messageId)));
   }, [deletedMessages]);
 
+  // ── Handle being removed from a group ──
+  useEffect(() => {
+    if (!memberRemovedEvents.length) return;
+    const ev = memberRemovedEvents[0];
+    if (ev.removedUserId !== myUserId) return;
+    if (groupChatRef.current?.id !== ev.groupId) return;
+    setGroupChat(null);
+    setGroupMessages([]);
+    setGroupChats((prev) => prev.filter((c) => c.groupId !== ev.groupId));
+    navigate('/ciudadano/mensajes');
+  }, [memberRemovedEvents]);
+
+  // ── Handle group rename ──
+  useEffect(() => {
+    if (!groupAddedEvents.length) return;
+    reloadGroupChats();
+  }, [groupAddedEvents]);
+
+  useEffect(() => {
+    if (!groupNameChangedEvents.length) return;
+    const ev = groupNameChangedEvents[0];
+    setGroupChats((prev) =>
+      prev.map((c) => (c.groupId === ev.groupId ? { ...c, name: ev.newName } : c)),
+    );
+    setGroupChat((prev) => (prev?.id === ev.groupId ? { ...prev, name: ev.newName } : prev));
+  }, [groupNameChangedEvents]);
+
   // ── Scroll to bottom on new messages ──
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -579,6 +609,7 @@ export const CitizenChatPage: React.FC = () => {
   };
 
   const handleSelectChat = (id: string) => {
+    setSearchParams({});
     setSelectedChatId(id);
     setSidebarOpen(false);
 
@@ -672,6 +703,14 @@ export const CitizenChatPage: React.FC = () => {
     );
   };
 
+  const handleDeleteGroupMessage = async (messageId: number) => {
+    try {
+      await businessService.deleteGroupMessage(messageId);
+    } catch {
+      // message_deleted socket event handles the UI update
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Navbar />
@@ -702,6 +741,14 @@ export const CitizenChatPage: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowPublicGroups(true)}
+                    title="Explorar grupos públicos"
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setShowCreateGroup(true)}
@@ -774,6 +821,20 @@ export const CitizenChatPage: React.FC = () => {
               onMarkRead={markGroupRead}
               groupMessageReads={groupMessageReads}
               messagesEndRef={messagesEndRef}
+              currentUserId={myUserId}
+              onGroupUpdated={(updated) => {
+                setGroupChat(updated);
+                setGroupChats((prev) =>
+                  prev.map((c) => (c.groupId === updated.id ? { ...c, name: updated.name } : c)),
+                );
+              }}
+              onRemovedFromGroup={(groupId) => {
+                setGroupChat(null);
+                setGroupMessages([]);
+                setGroupChats((prev) => prev.filter((c) => c.groupId !== groupId));
+                navigate('/ciudadano/mensajes');
+              }}
+              onDeleteMessage={handleDeleteGroupMessage}
             />
           ) : selectedChat ? (
             <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
@@ -813,7 +874,7 @@ export const CitizenChatPage: React.FC = () => {
                 {selectedChat.messages.map((msg, idx) => (
                   <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.messageType === 'ANNOUNCEMENT' ? 'justify-center' : msg.mine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.messageType === 'ANNOUNCEMENT'
+                      className={`max-w-[85%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.messageType === 'ANNOUNCEMENT'
                           ? msg.isUrgent
                             ? 'bg-red-50 text-red-900 border border-red-200'
                             : 'bg-amber-50 text-amber-900 border border-amber-200'
@@ -989,6 +1050,14 @@ export const CitizenChatPage: React.FC = () => {
         onClose={() => setShowCreateGroup(false)}
         onCreated={handleGroupCreated}
       />
+
+      {showPublicGroups && (
+        <PublicGroupsPanel
+          onClose={() => setShowPublicGroups(false)}
+          onJoined={() => setShowPublicGroups(false)}
+          myGroupIds={groupChats.map((g) => g.groupId ?? 0).filter(Boolean)}
+        />
+      )}
 
       {lastMessageError && (
         <div

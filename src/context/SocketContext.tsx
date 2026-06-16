@@ -42,6 +42,31 @@ export interface MessageDeletedPayload {
   messageId: number;
 }
 
+export interface GroupMemberRemovedPayload {
+  groupId: number;
+  removedUserId: string;
+  removedByName: string;
+}
+
+export interface GroupMemberPromotedPayload {
+  groupId: number;
+  promotedUserId: string;
+  promotedName: string;
+  promotedByName: string;
+}
+
+export interface GroupNameChangedPayload {
+  groupId: number;
+  newName: string;
+  changedByName: string;
+}
+
+export interface GroupAddedPayload {
+  groupId: number;
+  groupName: string;
+  addedBy: string;
+}
+
 export interface AnnouncementPayload {
   id: number;
   title: string;
@@ -57,6 +82,10 @@ interface SocketContextType {
   readReceipts: ReadReceiptPayload[];
   groupMessageReads: GroupMessageReadPayload[];
   deletedMessages: MessageDeletedPayload[];
+  memberRemovedEvents: GroupMemberRemovedPayload[];
+  memberPromotedEvents: GroupMemberPromotedPayload[];
+  groupNameChangedEvents: GroupNameChangedPayload[];
+  groupAddedEvents: GroupAddedPayload[];
   unreadCount: number;
   lastMessageError: string | null;
   sendMessage: (
@@ -86,6 +115,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [readReceipts, setReadReceipts] = useState<ReadReceiptPayload[]>([]);
   const [groupMessageReads, setGroupMessageReads] = useState<GroupMessageReadPayload[]>([]);
   const [deletedMessages, setDeletedMessages] = useState<MessageDeletedPayload[]>([]);
+  const [memberRemovedEvents, setMemberRemovedEvents] = useState<GroupMemberRemovedPayload[]>([]);
+  const [memberPromotedEvents, setMemberPromotedEvents] = useState<GroupMemberPromotedPayload[]>([]);
+  const [groupNameChangedEvents, setGroupNameChangedEvents] = useState<GroupNameChangedPayload[]>([]);
+  const [groupAddedEvents, setGroupAddedEvents] = useState<GroupAddedPayload[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [lastMessageError, setLastMessageError] = useState<string | null>(null);
 
@@ -132,12 +165,24 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setDeletedMessages((prev) => [payload, ...prev]);
     });
 
+    socket.on('group_member_removed', (payload: GroupMemberRemovedPayload) => {
+      setMemberRemovedEvents((prev) => [payload, ...prev]);
+    });
+
+    socket.on('group_member_promoted', (payload: GroupMemberPromotedPayload) => {
+      setMemberPromotedEvents((prev) => [payload, ...prev]);
+    });
+
+    socket.on('group_name_changed', (payload: GroupNameChangedPayload) => {
+      setGroupNameChangedEvents((prev) => [payload, ...prev]);
+    });
+
     socket.on('message_error', (payload: { error: string; detail?: string }) => {
       const msg = payload.detail ? `${payload.error}: ${payload.detail}` : payload.error;
       setLastMessageError(msg);
     });
 
-    socket.on('group_added', (payload: { groupId: number; groupName: string; addedBy: string }) => {
+    socket.on('group_added', (payload: GroupAddedPayload) => {
       addNotification({
         id: `group-${payload.groupId}-${Date.now()}`,
         title: 'Nuevo Grupo',
@@ -146,6 +191,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         placa: '---',
         etaMinutes: 0,
       });
+      setGroupAddedEvents((prev) => [...prev, payload]);
     });
 
     socket.on('announcement', (payload: AnnouncementPayload) => {
@@ -229,6 +275,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         readReceipts,
         groupMessageReads,
         deletedMessages,
+        memberRemovedEvents,
+        memberPromotedEvents,
+        groupNameChangedEvents,
+        groupAddedEvents,
         unreadCount,
         lastMessageError,
         sendMessage,

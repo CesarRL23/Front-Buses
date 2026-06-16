@@ -1,5 +1,25 @@
 import axios from "axios";
 
+export interface GroupMemberDto {
+  personGroupId: number;
+  personId: number;
+  userId: string;
+  nombre: string;
+  role: 'admin' | 'member';
+  joinedAt: string;
+}
+
+export interface GroupMembershipLogEntry {
+  id: number;
+  groupId: number;
+  action: 'added' | 'removed' | 'promoted' | 'banned';
+  actorUserId: string;
+  actorName: string;
+  targetUserId: string;
+  targetName: string;
+  createdAt: string;
+}
+
 const BUSINESS_API_BASE =
   import.meta.env.VITE_BUSINESS_API_URL || "http://localhost:3000";
 
@@ -512,6 +532,58 @@ export const businessService = {
   searchPersons: async (query: string) => {
     const response = await businessApi.get(`/person/search?q=${encodeURIComponent(query)}`);
     return response.data;
+  },
+
+  getGroupMembers: async (groupId: number) => {
+    const response = await businessApi.get(`/group/${groupId}/members`);
+    return response.data as GroupMemberDto[];
+  },
+
+  removeGroupMember: async (groupId: number, targetUserId: string) => {
+    const response = await businessApi.delete(`/group/${groupId}/members/${targetUserId}`);
+    return response.data;
+  },
+
+  promoteGroupMember: async (groupId: number, targetUserId: string) => {
+    const response = await businessApi.patch(`/group/${groupId}/members/${targetUserId}/promote`);
+    return response.data;
+  },
+
+  banGroupMember: async (groupId: number, targetUserId: string) => {
+    const response = await businessApi.post(`/group/${groupId}/bans`, { targetUserId });
+    return response.data;
+  },
+
+  getGroupMembershipLog: async (groupId: number) => {
+    const response = await businessApi.get(`/group/${groupId}/log`);
+    return response.data as GroupMembershipLogEntry[];
+  },
+
+  renameGroup: async (groupId: number, name: string) => {
+    const response = await businessApi.patch(`/group/${groupId}/rename`, { name });
+    return response.data;
+  },
+
+  addGroupMember: async (groupId: number, targetUserId: string) => {
+    const response = await businessApi.post(`/group/${groupId}/members`, { targetUserId });
+    return response.data as GroupMemberDto;
+  },
+
+  getPublicGroups: async () => {
+    const response = await businessApi.get('/group/public');
+    return response.data as Array<{
+      id: number;
+      name: string;
+      description?: string | null;
+      isPublic: boolean;
+      imageUrl?: string | null;
+      memberCount: number;
+    }>;
+  },
+
+  joinPublicGroup: async (groupId: number) => {
+    const response = await businessApi.post(`/group/${groupId}/join`, {});
+    return response.data as { success: boolean; groupId: number; groupName: string };
   },
 
   // ══════════════════════════════

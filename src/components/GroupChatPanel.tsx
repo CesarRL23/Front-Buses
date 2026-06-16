@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Send,
@@ -10,8 +10,10 @@ import {
   Check,
   CheckCheck,
   Users,
+  Trash2,
 } from 'lucide-react';
 import { GroupMessageReadPayload } from '../context/useSocket';
+import { GroupMembersPanel } from './GroupMembersPanel';
 
 export interface GroupChatMessage {
   id: string;
@@ -75,6 +77,10 @@ interface GroupChatPanelProps {
   onMarkRead: (messageId: number) => void;
   groupMessageReads: GroupMessageReadPayload[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  currentUserId: string;
+  onGroupUpdated?: (group: GroupDetails) => void;
+  onRemovedFromGroup?: (groupId: number) => void;
+  onDeleteMessage?: (messageId: number) => void;
 }
 
 export const GroupChatPanel: React.FC<GroupChatPanelProps> = ({
@@ -93,7 +99,19 @@ export const GroupChatPanel: React.FC<GroupChatPanelProps> = ({
   onMarkRead,
   groupMessageReads,
   messagesEndRef,
+  currentUserId,
+  onGroupUpdated,
+  onRemovedFromGroup,
+  onDeleteMessage,
 }) => {
+  const [membersOpen, setMembersOpen] = useState(false);
+
+  const currentUserRole = groupChat.personGroups?.find(
+    (pg) => pg.person.userId === currentUserId,
+  )?.role;
+
+  const isAdmin = currentUserRole === 'admin';
+
   // Marca como leídos los mensajes ajenos del grupo a medida que se muestran
   useEffect(() => {
     groupMessages.forEach((msg) => {
@@ -114,7 +132,7 @@ export const GroupChatPanel: React.FC<GroupChatPanelProps> = ({
   };
 
   return (
-    <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
+    <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0 relative`}>
       {/* Group chat header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
         <div className="flex items-center gap-3">
@@ -141,7 +159,12 @@ export const GroupChatPanel: React.FC<GroupChatPanelProps> = ({
           <button type="button" title="Videollamar" className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500 hover:text-blue-600">
             <Video className="w-5 h-5" />
           </button>
-          <button type="button" title="Más opciones" className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500">
+          <button
+            type="button"
+            title="Ver participantes"
+            className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500 hover:text-blue-600"
+            onClick={() => setMembersOpen(true)}
+          >
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
@@ -157,32 +180,47 @@ export const GroupChatPanel: React.FC<GroupChatPanelProps> = ({
           groupMessages.map((msg, idx) => {
             const messageId = Number(msg.id);
             return (
-              <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex flex-col ${msg.mine ? 'items-end' : 'items-start'}`}>
-                <p className={`text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-1 px-1`}>
-                  {senderName(msg)} - {roleLabel(msg.senderRole)}
-                </p>
-                <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
-                    ? 'bg-blue-600 text-white rounded-br-sm'
-                    : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
-                  }`}
-                >
-                  <p className="text-sm leading-relaxed">{msg.text}</p>
-                  {(msg.latitud != null && msg.longitud != null) && (
-                    <a
-                      href={`https://maps.google.com/?q=${msg.latitud},${msg.longitud}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`flex items-center gap-1 text-[10px] mt-1 underline ${msg.mine ? 'text-blue-200' : 'text-blue-500'}`}
+              <div key={msg.id === 'pending' ? `pending-${idx}` : msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex flex-col max-w-[85%] min-w-0 ${msg.mine ? 'items-end' : 'items-start'}`}>
+                  <p className={`text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-1 px-1 truncate w-full`}>
+                    {senderName(msg)} - {roleLabel(msg.senderRole)}
+                  </p>
+                  <div className="relative group/msg w-full">
+                    <div className={`px-4 py-2.5 rounded-2xl shadow-sm ${msg.mine
+                        ? 'bg-blue-600 text-white rounded-br-sm'
+                        : 'bg-white text-gray-900 border border-gray-100 rounded-bl-sm'
+                      }`}
                     >
-                      <MapPin className="w-3 h-3" /> Ver ubicación
-                    </a>
-                  )}
-                  <div className={`flex items-center justify-end gap-1 mt-1 ${msg.mine ? 'text-blue-200' : 'text-gray-400'}`}>
-                    <span className="text-[10px]">{msg.time}</span>
-                    {msg.mine && (
-                      liveReadCount(messageId) > 0
-                        ? <CheckCheck className="w-3 h-3" />
-                        : <Check className="w-3 h-3" />
+                      <p className="text-sm leading-relaxed">{msg.text}</p>
+                      {(msg.latitud != null && msg.longitud != null) && (
+                        <a
+                          href={`https://maps.google.com/?q=${msg.latitud},${msg.longitud}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`flex items-center gap-1 text-[10px] mt-1 underline ${msg.mine ? 'text-blue-200' : 'text-blue-500'}`}
+                        >
+                          <MapPin className="w-3 h-3" /> Ver ubicación
+                        </a>
+                      )}
+                      <div className={`flex items-center justify-end gap-1 mt-1 ${msg.mine ? 'text-blue-200' : 'text-gray-400'}`}>
+                        <span className="text-[10px]">{msg.time}</span>
+                        {msg.mine && (
+                          liveReadCount(messageId) > 0
+                            ? <CheckCheck className="w-3 h-3" />
+                            : <Check className="w-3 h-3" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Admin delete button — visible on hover */}
+                    {isAdmin && msg.id !== 'pending' && (
+                      <button
+                        onClick={() => onDeleteMessage?.(messageId)}
+                        title="Eliminar mensaje"
+                        className={`absolute top-0 hidden group-hover/msg:flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition z-10 -translate-y-1 ${msg.mine ? 'left-0 -translate-x-1' : 'right-0 translate-x-1'}`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -254,6 +292,24 @@ export const GroupChatPanel: React.FC<GroupChatPanelProps> = ({
           <MapPin className="w-3 h-3" />
           Ubicación adjunta ({pendingLocation.latitud.toFixed(4)}, {pendingLocation.longitud.toFixed(4)})
         </div>
+      )}
+
+      {/* Members panel overlay */}
+      {membersOpen && (
+        <GroupMembersPanel
+          groupId={groupChat.id}
+          groupName={groupChat.name}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
+          onClose={() => setMembersOpen(false)}
+          onGroupRenamed={(name) => {
+            onGroupUpdated?.({ ...groupChat, name });
+          }}
+          onRemovedFromGroup={() => {
+            setMembersOpen(false);
+            onRemovedFromGroup?.(groupChat.id);
+          }}
+        />
       )}
     </div>
   );

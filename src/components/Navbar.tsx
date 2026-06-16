@@ -99,13 +99,11 @@ export const Navbar: React.FC = () => {
   };
 
   const handleNotificationToggle = () => {
-    setIsNotificationOpen((current) => {
-      const nextState = !current;
-      if (nextState) {
-        markAllAsRead();
-      }
-      return nextState;
-    });
+    const willOpen = !isNotificationOpen;
+    setIsNotificationOpen(willOpen);
+    if (willOpen) {
+      markAllAsRead();
+    }
   };
 
   const getUserPanels = () => {
@@ -266,6 +264,10 @@ export const Navbar: React.FC = () => {
                                     onClick={() => {
                                       markAsRead(notification.id);
                                       notification.onAction?.();
+                                      if (notification.navigateTo) {
+                                        setIsNotificationOpen(false);
+                                        navigate(notification.navigateTo);
+                                      }
                                     }}
                                     className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
                                   >

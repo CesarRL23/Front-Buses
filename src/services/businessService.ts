@@ -586,6 +586,11 @@ export const businessService = {
     return response.data as { success: boolean; groupId: number; groupName: string };
   },
 
+  leaveGroup: async (groupId: number) => {
+    const response = await businessApi.post(`/group/${groupId}/leave`, {});
+    return response.data as { groupDeleted: boolean };
+  },
+
   // ══════════════════════════════
   //  CITAS — HU-ENTR-3-012
   // ══════════════════════════════

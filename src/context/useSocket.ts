@@ -10,6 +10,8 @@ export type {
   GroupMemberPromotedPayload,
   GroupNameChangedPayload,
   GroupAddedPayload,
+  GroupMemberLeftPayload,
+  GroupMemberLeftNotifyPayload,
 } from './SocketContext';
 
 export const useSocket = () => {

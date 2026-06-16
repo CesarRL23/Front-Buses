@@ -67,6 +67,18 @@ export interface GroupAddedPayload {
   addedBy: string;
 }
 
+export interface GroupMemberLeftPayload {
+  groupId: number;
+  leftUserId: string;
+  leftUserName: string;
+}
+
+export interface GroupMemberLeftNotifyPayload {
+  groupId: number;
+  groupName: string;
+  leftUserName: string;
+}
+
 export interface AnnouncementPayload {
   id: number;
   title: string;
@@ -86,6 +98,7 @@ interface SocketContextType {
   memberPromotedEvents: GroupMemberPromotedPayload[];
   groupNameChangedEvents: GroupNameChangedPayload[];
   groupAddedEvents: GroupAddedPayload[];
+  memberLeftEvents: GroupMemberLeftPayload[];
   unreadCount: number;
   lastMessageError: string | null;
   sendMessage: (
@@ -119,6 +132,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [memberPromotedEvents, setMemberPromotedEvents] = useState<GroupMemberPromotedPayload[]>([]);
   const [groupNameChangedEvents, setGroupNameChangedEvents] = useState<GroupNameChangedPayload[]>([]);
   const [groupAddedEvents, setGroupAddedEvents] = useState<GroupAddedPayload[]>([]);
+  const [memberLeftEvents, setMemberLeftEvents] = useState<GroupMemberLeftPayload[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [lastMessageError, setLastMessageError] = useState<string | null>(null);
 
@@ -177,6 +191,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setGroupNameChangedEvents((prev) => [payload, ...prev]);
     });
 
+    socket.on('group_member_left', (payload: GroupMemberLeftPayload) => {
+      setMemberLeftEvents((prev) => [payload, ...prev]);
+    });
+
+    socket.on('group_member_left_notify', (payload: GroupMemberLeftNotifyPayload) => {
+      addNotification({
+        id: `group-left-${payload.groupId}-${Date.now()}`,
+        title: `Grupo: ${payload.groupName}`,
+        message: `${payload.leftUserName} ha abandonado el grupo`,
+        routeName: 'Grupos',
+        placa: '---',
+        etaMinutes: 0,
+      });
+    });
+
     socket.on('message_error', (payload: { error: string; detail?: string }) => {
       const msg = payload.detail ? `${payload.error}: ${payload.detail}` : payload.error;
       setLastMessageError(msg);
@@ -185,8 +214,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('group_added', (payload: GroupAddedPayload) => {
       addNotification({
         id: `group-${payload.groupId}-${Date.now()}`,
-        title: 'Nuevo Grupo',
-        message: `Te han añadido al grupo "${payload.groupName}"`,
+        title: `¡Bienvenido al grupo "${payload.groupName}"!`,
+        message: 'Ahora eres miembro. Toca "Ver" para abrir el chat del grupo.',
+        actionLabel: 'Ver',
+        navigateTo: `/mensajes?groupId=${payload.groupId}`,
         routeName: 'Grupos',
         placa: '---',
         etaMinutes: 0,
@@ -279,6 +310,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         memberPromotedEvents,
         groupNameChangedEvents,
         groupAddedEvents,
+        memberLeftEvents,
         unreadCount,
         lastMessageError,
         sendMessage,

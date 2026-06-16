@@ -9,6 +9,7 @@ type AppNotification = {
   etaMinutes?: number;
   actionLabel?: string;
   onAction?: () => void;
+  navigateTo?: string;
   timestamp: number;
   read: boolean;
   kind?: 'proximity' | 'announcement';

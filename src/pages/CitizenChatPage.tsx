@@ -349,11 +349,27 @@ export const CitizenChatPage: React.FC = () => {
       // Skip if I'm the sender — handled via sentConfirmations (replaces optimistic pending)
       if (msg.emisor === myUserId) return;
       const groupId = Number(msg.receptor.replace('group-', ''));
-      if (groupChatRef.current?.id === groupId) {
+      const isCurrentGroup = groupChatRef.current?.id === groupId;
+
+      if (isCurrentGroup) {
         setGroupMessages((prev) =>
           prev.some((m) => m.id === String(msg.id)) ? prev : [...prev, payloadToMsg(msg, myUserId)],
         );
       }
+
+      setGroupChats((prev) =>
+        prev.map((c) =>
+          c.groupId === groupId
+            ? {
+                ...c,
+                lastMessage: msg.contenido,
+                lastMessageAt: msg.fechaDeEnvio,
+                time: fmtTime(msg.fechaDeEnvio),
+                unread: isCurrentGroup ? 0 : c.unread + 1,
+              }
+            : c,
+        ),
+      );
       return;
     }
 
@@ -478,7 +494,7 @@ export const CitizenChatPage: React.FC = () => {
     setGroupChat(null);
     setGroupMessages([]);
     setGroupChats((prev) => prev.filter((c) => c.groupId !== ev.groupId));
-    navigate('/ciudadano/mensajes');
+    navigate('/mensajes');
   }, [memberRemovedEvents]);
 
   // ── Handle group rename ──
@@ -540,6 +556,9 @@ export const CitizenChatPage: React.FC = () => {
         const data = await businessService.getGroupById(Number(groupId));
         setGroupChat(data);
         setSelectedChatId(null);
+        setGroupChats((prev) =>
+          prev.map((c) => (c.groupId === Number(groupId) ? { ...c, unread: 0 } : c)),
+        );
 
         const messages = await businessService.getGroupMessages(Number(groupId));
         setGroupMessages(messages.map((msg: MessagePayload) => payloadToMsg(msg, myUserId)));
@@ -832,7 +851,7 @@ export const CitizenChatPage: React.FC = () => {
                 setGroupChat(null);
                 setGroupMessages([]);
                 setGroupChats((prev) => prev.filter((c) => c.groupId !== groupId));
-                navigate('/ciudadano/mensajes');
+                navigate('/mensajes');
               }}
               onDeleteMessage={handleDeleteGroupMessage}
             />

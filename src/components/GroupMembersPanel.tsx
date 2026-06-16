@@ -12,6 +12,7 @@ import {
   Users,
   Activity,
   UserPlus,
+  LogOut,
 } from 'lucide-react';
 import { businessService, GroupMemberDto, GroupMembershipLogEntry } from '../services/businessService';
 import { useSocket } from '../context/useSocket';
@@ -78,6 +79,7 @@ const ACTION_LABELS: Record<string, string> = {
   removed: 'eliminó a',
   promoted: 'promovió a',
   banned: 'bloqueó a',
+  left: 'abandonó el grupo',
 };
 
 export const GroupMembersPanel: React.FC<GroupMembersPanelProps> = ({
@@ -89,7 +91,7 @@ export const GroupMembersPanel: React.FC<GroupMembersPanelProps> = ({
   onGroupRenamed,
   onRemovedFromGroup,
 }) => {
-  const { memberRemovedEvents, memberPromotedEvents, groupNameChangedEvents } = useSocket();
+  const { memberRemovedEvents, memberPromotedEvents, groupNameChangedEvents, memberLeftEvents } = useSocket();
 
   const [members, setMembers] = useState<GroupMemberDto[]>([]);
   const [log, setLog] = useState<GroupMembershipLogEntry[]>([]);
@@ -157,6 +159,29 @@ export const GroupMembersPanel: React.FC<GroupMembersPanelProps> = ({
       ...prev,
     ]);
   }, [memberRemovedEvents]);
+
+  // React to member left events (voluntary departure)
+  useEffect(() => {
+    if (!memberLeftEvents.length) return;
+    const ev = memberLeftEvents[0];
+    if (ev.groupId !== groupId) return;
+
+    if (ev.leftUserId === currentUserId) return;
+    setMembers((prev) => prev.filter((m) => m.userId !== ev.leftUserId));
+    setLog((prev) => [
+      {
+        id: Date.now(),
+        groupId,
+        action: 'left',
+        actorUserId: ev.leftUserId,
+        actorName: ev.leftUserName,
+        targetUserId: ev.leftUserId,
+        targetName: ev.leftUserName,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  }, [memberLeftEvents]);
 
   // React to member promoted events
   useEffect(() => {
@@ -245,6 +270,47 @@ export const GroupMembersPanel: React.FC<GroupMembersPanelProps> = ({
           setMembers((prev) => prev.filter((m) => m.userId !== targetUserId));
         } catch (e: any) {
           setError(e.response?.data?.message ?? 'Error al bloquear');
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
+  };
+
+  const handleLeaveGroup = () => {
+    const otherAdmins = members.filter((m) => m.role === 'admin' && m.userId !== currentUserId);
+    const isSoleMember = members.length === 1;
+
+    if (isAdmin && !isSoleMember && otherAdmins.length === 0) {
+      setConfirmDialog({
+        title: 'No puedes abandonar el grupo',
+        message: 'Eres el único administrador. Debes promover a otro miembro como administrador antes de abandonar.',
+        confirmLabel: 'Entendido',
+        danger: false,
+        onConfirm: () => {},
+      });
+      return;
+    }
+
+    setConfirmDialog({
+      title: isSoleMember ? 'Abandonar y eliminar grupo' : 'Abandonar grupo',
+      message: isSoleMember
+        ? 'Eres el único miembro. El grupo y todos sus mensajes serán eliminados permanentemente.'
+        : `¿Seguro que quieres abandonar "${groupName}"?`,
+      subMessage: isSoleMember
+        ? 'Esta acción no se puede deshacer.'
+        : 'Dejarás de recibir mensajes del grupo. Podrás volver a unirte si es público.',
+      confirmLabel: isSoleMember ? 'Eliminar y salir' : 'Abandonar',
+      danger: true,
+      onConfirm: async () => {
+        setActionLoading('leaving');
+        setError(null);
+        try {
+          await businessService.leaveGroup(groupId);
+          onClose();
+          onRemovedFromGroup();
+        } catch (e: any) {
+          setError(e.response?.data?.message ?? 'Error al abandonar el grupo');
         } finally {
           setActionLoading(null);
         }
@@ -587,12 +653,22 @@ export const GroupMembersPanel: React.FC<GroupMembersPanelProps> = ({
                     {entry.action === 'removed' && <UserMinus className="w-3.5 h-3.5 text-red-500" />}
                     {entry.action === 'promoted' && <Shield className="w-3.5 h-3.5 text-amber-500" />}
                     {entry.action === 'banned' && <Ban className="w-3.5 h-3.5 text-gray-500" />}
+                    {entry.action === 'left' && <LogOut className="w-3.5 h-3.5 text-orange-400" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold">{entry.actorName}</span>{' '}
-                      {ACTION_LABELS[entry.action]}{' '}
-                      <span className="font-semibold">{entry.targetName}</span>
+                      {entry.action === 'left' ? (
+                        <>
+                          <span className="font-semibold">{entry.actorName}</span>{' '}
+                          {ACTION_LABELS[entry.action]}
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-semibold">{entry.actorName}</span>{' '}
+                          {ACTION_LABELS[entry.action]}{' '}
+                          <span className="font-semibold">{entry.targetName}</span>
+                        </>
+                      )}
                     </p>
                     <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(entry.createdAt)}</p>
                   </div>
@@ -601,6 +677,22 @@ export const GroupMembersPanel: React.FC<GroupMembersPanelProps> = ({
             )}
           </ul>
         )}
+      </div>
+
+      {/* Leave group button — visible to all members */}
+      <div className="px-4 py-3 border-t border-gray-100">
+        <button
+          onClick={handleLeaveGroup}
+          disabled={actionLoading === 'leaving'}
+          className="flex items-center gap-2 w-full justify-center text-sm font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl transition disabled:opacity-50"
+        >
+          {actionLoading === 'leaving' ? (
+            <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <LogOut className="w-4 h-4" />
+          )}
+          Abandonar grupo
+        </button>
       </div>
 
       {/* Custom confirm dialog */}

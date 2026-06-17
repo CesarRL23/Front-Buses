@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../context/NotificationContext';
-import { Bus, LogOut, User, Shield, ChevronDown, LayoutDashboard, MapPin, Building, ArrowRight, Bell, Search, TrendingUp, X } from 'lucide-react';
+import { Activity, Bus, LogOut, User, Shield, ChevronDown, LayoutDashboard, MapPin, Building, ArrowRight, Bell, Search, TrendingUp, X } from 'lucide-react';
 
 // Configuración de metadatos por rol para el menú
 const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc: string; color: string }> = {
@@ -62,6 +62,13 @@ const ROLE_CONFIG: Record<string, { path: string; icon: any; title: string; desc
     title: 'Gerente de Operaciones',
     desc: 'Tendencias de incidentes',
     color: 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+  },
+  'SUPERVISOR DE OPERACIONES': {
+    path: '/supervisor-operaciones',
+    icon: Activity,
+    title: 'Supervisor de Operaciones',
+    desc: 'Monitoreo de flota en tiempo real',
+    color: 'text-teal-600 hover:bg-teal-50 hover:text-teal-700'
   },
 
 };

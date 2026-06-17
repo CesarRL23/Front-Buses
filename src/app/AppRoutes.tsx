@@ -18,6 +18,7 @@ import { AdminEmpresaDashboard } from '../pages/AdminEmpresaDashboard';
 import { MarketingAnalystDashboard } from '../pages/MarketingAnalystDashboard';
 import { FinancialAdministratorDashboard } from '../pages/FinancialAdministratorDashboard';
 import { OperationsManagerDashboard } from '../pages/OperationsManagerDashboard';
+import { SupervisorOperacionesDashboard } from '../pages/SupervisorOperacionesDashboard';
 import { CitizenChatPage } from '../pages/CitizenChatPage';
 import { ConductorChatPage } from '../pages/ConductorChatPage';
 import { ConductorGroupsPage } from '../pages/ConductorGroupsPage';
@@ -147,6 +148,15 @@ export const AppRoutes: React.FC = () => {
           element={
             <PrivateRoute>
               <FinancialAdministratorDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/supervisor-operaciones"
+          element={
+            <PrivateRoute>
+              <SupervisorOperacionesDashboard />
             </PrivateRoute>
           }
         />

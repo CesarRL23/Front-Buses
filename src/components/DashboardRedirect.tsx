@@ -28,6 +28,12 @@ export const DashboardRedirect: React.FC = () => {
     if (roles.includes('CIUDADANO')) {
       navigate('/ciudadano', { replace: true });
     } else if (
+      roles.includes('SUPERVISOR DE OPERACIONES') ||
+      roles.includes('SUPERVISOR_DE_OPERACIONES') ||
+      roles.includes('SUPERVISORDEOPERACIONES')
+    ) {
+      navigate('/supervisor-operaciones', { replace: true });
+    } else if (
       roles.includes('GERENTE_OPERACIONES') ||
       roles.includes('OPERATIONS_MANAGER') ||
       roles.includes('GERENTE DE OPERACIONES') ||
@@ -71,7 +77,10 @@ export const DashboardRedirect: React.FC = () => {
     roles.includes('FINANCIAL_ADMINISTRATOR') ||
     roles.includes('ADMINISTRADOR_FINANCIERO') ||
     roles.includes('ADMINISTRADOR FINANCIERO') ||
-    roles.includes('FINANCIALADMINISTRATOR')
+    roles.includes('FINANCIALADMINISTRATOR') ||
+    roles.includes('SUPERVISOR DE OPERACIONES') ||
+    roles.includes('SUPERVISOR_DE_OPERACIONES') ||
+    roles.includes('SUPERVISORDEOPERACIONES')
   )
     return null; // already redirected
 

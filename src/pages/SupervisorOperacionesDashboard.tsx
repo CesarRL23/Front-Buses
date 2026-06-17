@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Navbar } from '../components/Navbar';
 import { StatsCard } from '../components/DashboardComponents';
 import { businessService } from '../services/businessService';
@@ -238,66 +240,53 @@ export const SupervisorOperacionesDashboard: React.FC = () => {
   );
 
   // ── Leaflet map init ────────────────────────────────────────────────────────
+  // Se ejecuta cuando loading pasa a false (el div del mapa ya está en el DOM)
   useEffect(() => {
-    if (!mapContainerRef.current || mapReadyRef.current) return;
+    if (loading) return;
 
-    const init = async () => {
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
+    let map: L.Map | null = null;
+
+    const initMap = () => {
+      const container = mapContainerRef.current;
+      if (!container) return;
+
+      if (mapReadyRef.current) {
+        // Ya inicializado, solo recalcula tamaño
+        mapInstanceRef.current?.invalidateSize();
+        return;
       }
 
-      if (!(window as any).L) {
-        await new Promise<void>((resolve) => {
-          if (document.getElementById('leaflet-js')) {
-            const check = setInterval(() => {
-              if ((window as any).L) { clearInterval(check); resolve(); }
-            }, 100);
-            return;
-          }
-          const script = document.createElement('script');
-          script.id = 'leaflet-js';
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = () => resolve();
-          document.head.appendChild(script);
-        });
+      if ((container as any)._leaflet_id) {
+        (container as any)._leaflet_id = null;
       }
 
-      const L = (window as any).L;
-      if (!L || !mapContainerRef.current) return;
-
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-
-      const map = L.map(mapContainerRef.current, { zoomControl: true, scrollWheelZoom: true });
+      map = L.map(container, { zoomControl: true, scrollWheelZoom: true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
+        maxZoom: 19,
       }).addTo(map);
 
-      map.setView([4.7110, -74.0721], 12);
+      map.setView([5.0703, -75.5138], 13);
       mapInstanceRef.current = map;
       mapReadyRef.current = true;
+      map.invalidateSize();
     };
 
-    init();
+    const t = setTimeout(initMap, 100);
+
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+      clearTimeout(t);
+      if (map) {
+        map.remove();
         mapInstanceRef.current = null;
         mapReadyRef.current = false;
       }
     };
-  }, []);
+  }, [loading]);
 
   // ── update bus markers ──────────────────────────────────────────────────────
   useEffect(() => {
-    const L = (window as any).L;
-    if (!L || !mapInstanceRef.current) return;
+    if (!mapInstanceRef.current) return;
 
     Object.values(busMarkersRef.current).forEach((m: any) => m.remove());
     busMarkersRef.current = {};
@@ -441,7 +430,7 @@ export const SupervisorOperacionesDashboard: React.FC = () => {
 
               {/* Fleet map */}
               <div className="lg:col-span-8">
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                     <div>
                       <p className="font-bold text-slate-900">Mapa de Flota en Tiempo Real</p>
